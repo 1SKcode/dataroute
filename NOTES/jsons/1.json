@@ -1,0 +1,91 @@
+{
+    "target1": {
+        "sourse_type": "dict",
+        "target_type": "dict",
+        "routes": {
+            "id": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    }
+                },
+                "final_type": "str",
+                "final_name": "id"
+            },
+            "name": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*lower"
+                    }
+                },
+                "final_type": "str",
+                "final_name": "low_name"
+            },
+            "age": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*check_age"
+                    }
+                },
+                "final_type": "int",
+                "final_name": "age"
+            }
+        }
+    },
+    "target2": {
+        "sourse_type": "dict",
+        "target_type": "dict",
+        "routes": {
+            "id": {
+                "pipeline": {
+                },
+                "final_type": "str",
+                "final_name": "id"
+            },
+            "name": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this", 
+                        "full_str": "*s1"
+                    },
+                    "2": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*upper"
+                    }
+                },
+                "final_type": "str",
+                "final_name": "name"
+            },
+            "__void1": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*gen_rand_int"
+                    }
+                },
+                "final_type": "int", 
+                "final_name": "score"
+            },
+            "__void2": {
+                "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*gen_rand_int"
+                    }
+                },
+                "final_type": "int",
+                "final_name": "score2"
+            }
+        }
+    }
+}

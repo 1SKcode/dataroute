@@ -1,0 +1,181 @@
+```
+source = dict   #etl_routes()
+
+target1=parser/norm_data.norm_flats
+target2=parser/fids_raw_data.flats
+
+
+target3=source
+def gen_uuid_for_data(data):
+    data["uuid"] = str(uuid.uuid4())
+    return data
+
+
+
+
+<!-- 
+data = {
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+    "flat1": skldfsd
+} -->
+
+target3:
+    [] -> |*gen_uuid| -> [uuid](UUID)
+
+target2:
+    [id]      -> [id]()
+    [section] -> [section]()
+
+
+
+target1:
+    [] -> |*gen_uuid| -> [uuid](UUID)
+    [id]        -> |*s1|if (None): ROLLBACK("У ОН нет id!")|  -> []
+    [section]   -> |*s1|if (None): *get("нет секции")|        -> [section_name](str)
+    [floor]     -> |*s1|                                      -> [floor_of_flat](int)
+    [type]      -> |*s1|if (not in $$normdata.TYPE_OF_FLATS): SKIP("Еще не обрабатываем такой тип") > []
+    [type]
+    [is_studio]
+    [rooms]
+    [area_total]
+    [area_living]
+    [area_kitchen]
+    [ceiling]
+    [price]        -> |*s1|*s_prise|if (None): SKIP("Нет базовой цены") -> price_base(int)
+    [price_sale]   -> |*s1|*s_prise|if (None): *get($price) -> []
+    [balconies]
+    [loggias]
+    [images]
+    [plans_flat]
+    [plans_floor]
+    [url]
+    [number]
+    [windows_view] -> |*lower| -> [windows_view](str)
+    [advantages]
+    [finising]
+    [description]
+    [area_bath]
+    [area_toilet]
+    [plans_flat_furniture]
+    [floors_in_section]
+    [status_active]
+    [is_euro] -> |*s1|*lower|if (in $$normdata.EURO_LIST): *get(True) else (*get(False))| -> [is_euro](bool)
+
+    #  timestamp вынесется на SET DEFAULT (NOW() + INTERVAL '3 minutes')::timestamp;
+    #  online вынесется на SET DEFAULT true
+    #  status  вынесется на SET DEFAULT 'Свободна'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//
+source = {str}  - тип источника откуда идут данные (сейчас доступен только dict, в будущем list и чтение напрямую из БД)
+target{int}     - конечные точки куда будут записываться данные. Для каждого тaргета определяется своя route_map
+route_map       - область определения карты маршрута. Начинается с `target{int}:`.
+[name] ->       - чтение индекса из source
+[] ->           - вместо чтения из source взять None 
+-> [name](type) - запись в target и пердвартиельныфй каст в указанный тип (при ошибке вызывается ROLLBACK(str))
+-> []           - не записывать
+|||||           - Последовательная обработка - transform_route
+*               - вызов ф-ии (автоматически передается аргумент)
+*()             - вызов ф-ии с аргументами (в дополнение к первому)
+$               - обращение к локальной переменной source ([name] >) внутри карты маршрута
+$this           - обращение к самому себе (на своем route)
+$$              - обращение к глобальным константам из папки variables (обращение к переменным через точку)
+if (exp) : (else) - Условное выражение. Чтобы обратиться к текущей переменной используйте this
+if (None): (else) - Если None, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+if (in $var) (else)     - Если есть вхождение, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+if (not in $var) (else) - Если нет вхождения, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+ROLLBACK(str)   - Событие: отмена всего процесса от начала до конца + NOTIFY(сообщение почему так вышло)
+SKIP(str)       - Событие: пропускаем одну запись, записываем в счетчик + NOTIFY(сообщение почему так вышло)
+NOTIFY(str)     - Событие: отправляем в стек уведомления
+
+
+----ROUTE MAP----
+point:
+    source[i] - route[i] - target[i](type)
+
+
+
+
+
+ПАРСИНГ:
+    |*s1|if (None): ROLLBACK("У ОН нет id!")| -> 
+        type: функция
+        python_callable: s1(raw_record) -> 
+
+        type: условие
+        action: вызвать ф-ию _if() с аргументом None
+        если true: event_arg = ROLLBACK() с аргументом("У ОН нет id!")
+        если false: идем дальше
+
+СЛОВАРЬ ПОСЛЕ ПАРСИНГА
+core_parse = {
+    "open_dict" = {} --  сюда можно записывать по мере выполнения, все остальное только на этап компиляции стека
+    "type" = str --?
+    "source" = str, -- откуда берутся индексы
+    "target" = {}, -- куда записывается (схема)
+    "metadata" = {} -- информация с этапа компиляции
+    "routes" = {
+        "open_dict" = {}
+        "type" = str --?
+        "metadata" = {} 
+        "index_name" = str --имя маршрута [name] ->
+        "void_call" = bool -- если маршрут определн как [] ->
+        "raw_record" = T
+        "stack" = [ -- выполнение слева направо |||||
+            call = {
+                "open_dict" = { -- заполняется по мере выполнения стека
+                    rollback_now = {}
+                    skip_it = {}
+                    notify = {}
+                }
+                "type" = str --функция, условие, вхождение, отсутствие вхождения, пустой 
+                "metadata" = {}
+                "choise" = bool
+                "action" - что делать этому вызову в итоге
+                "python_callable" = python_callable
+                "lical_var" = T
+                "lical_var_metadata"
+                "global_var" = T
+                "global_var_metadata" = {},
+                "event" = str
+                "event_arg" = str
+                
+            }
+        ]
+    }
+}
+
+
+
+
+```
