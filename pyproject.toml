@@ -1,14 +1,15 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "dataroute"
 version = "0.1.0"
 description = "Декларативный язык программирования для построения пайплайнов обработки данных"
 readme = "README.md"
+requires-python = ">=3.6"
 authors = [
-    {name = "Alexander Kirsanov", email = "ip387525@gmail.com"},
+    {name = "DataRoute"}
 ]
 license = {text = "MIT"}
 classifiers = [
@@ -26,7 +27,6 @@ dependencies = [
     "lark~=1.2",
     ""
 ]
-requires-python = ">=3.8"
 
 [project.urls]
 "Homepage" = "https://github.com/1SKcode/dataroute"

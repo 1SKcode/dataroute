@@ -53,7 +53,7 @@ target1:
     [area_living]
     [area_kitchen]
     [ceiling]
-    [price]        -> |*s1|*s_prise|if (None): SKIP("Нет базовой цены") -> price_base(int)
+    [price]        -> |*s1|*s_prise|if (None): SKIP("Нет базовой цены")| -> price_base(int)
     [price_sale]   -> |*s1|*s_prise|if (None): *get($price) -> []
     [balconies]
     [loggias]

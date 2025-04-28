@@ -53,15 +53,14 @@ PATTERNS = {
     TokenType.SOURCE: r'sourse\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)',
     
     # Определение цели: target1=dict("target1")
-    TokenType.TARGET: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*"([^"]*)"\s*\)',
+    TokenType.TARGET: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)',
     
     # Заголовок маршрута: target1:
     TokenType.ROUTE_HEADER: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
     
-    # Строка маршрута с отступом: [field] -> |pipeline| -> [field](type)
-    TokenType.ROUTE_LINE: r'^\s+\[([a-zA-Z0-9_]*)\]\s*->\s*(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->\s*\[([a-zA-Z0-9_]+)\]\(([a-zA-Z0-9_]+)\))?'
-}
-
+    # Строка маршрута с отступом: [id] -> |*s1| -> [external_id](str))
+    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>)\s*)?\[([a-zA-Z0-9_]+)\]\(([a-zA-Z0-9_]+)\)'
+} 
 
 # ==============================================================
 # БАЗОВЫЕ КЛАССЫ
@@ -251,6 +250,11 @@ class Lexer:
     def __init__(self, debug=False):
         self.tokens = []
         self.debug = debug
+
+    def _strip_quotes(self, s):
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in {"'", '"'}:
+            return s[1:-1]
+        return s
     
     def tokenize(self, text: str) -> List[Token]:
         """Разбивает текст на токены"""
