@@ -14,23 +14,6 @@ def gen_uuid_for_data(data):
 
 
 <!-- 
-data = {
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-    "flat1": skldfsd
-} -->
-
 target3:
     [] -> |*gen_uuid| -> [uuid](UUID)
 
