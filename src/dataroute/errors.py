@@ -3,7 +3,8 @@ import sys
 from typing import Optional
 
 from .constants import ErrorType, ERROR_MESSAGE_MAP, ERROR_HINT_MAP
-from .localization import Localization, M, Messages
+from .localization import Localization, Messages
+from .config import Config
 
 
 class DSLSyntaxError(Exception):
@@ -14,15 +15,14 @@ class DSLSyntaxError(Exception):
                  line: str,
                  line_num: int,
                  position: Optional[int] = None,
-                 suggestion: Optional[str] = None,
-                 lang: str = "ru"):
+                 suggestion: Optional[str] = None):
         self.error_type = error_type
         self.line = line
         self.line_num = line_num
         self.position = position or self._guess_error_position(line)
         self.suggestion = suggestion
-        self.lang = lang
-        self.loc = Localization(lang)
+        self.lang = Config.get_lang()
+        self.loc = Localization(self.lang)
         
         # Формируем сообщение об ошибке
         message = self._format_error_message()
@@ -54,7 +54,7 @@ class DSLSyntaxError(Exception):
         # Иначе пробуем использовать стандартную подсказку для данного типа ошибки
         elif ERROR_HINT_MAP.get(self.error_type):
             hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type), 
-                              target=self.line if self.error_type == ErrorType.SEMANTIC_TARGET else None)
+                                target=self.line if self.error_type == ErrorType.SEMANTIC_TARGET else None)
             if hint:
                 hint_label = self.loc.get(Messages.Hint.LABEL)
                 result.append(f"{hint_label} {hint}")
@@ -65,9 +65,7 @@ class DSLSyntaxError(Exception):
 class SyntaxErrorHandler:
     """Обработчик синтаксических ошибок DSL"""
     
-    def __init__(self, lang: str = "ru"):
-        self.lang = lang
-        
+    def __init__(self):
         # Паттерны для частичных совпадений
         self.patterns = {
             # Для проверки открытого пайплайна без закрытия
@@ -101,31 +99,28 @@ class SyntaxErrorHandler:
         # Проверка на пустой пайплайн
         if re.search(self.patterns["pipeline_empty"], line):
             pos = re.search(self.patterns["pipeline_empty"], line).start() + 1
-            return PipelineEmptyError(line, line_num, pos, self.lang)
+            return PipelineEmptyError(line, line_num, pos)
         
         # Проверка на последовательные пайплайны
         if re.search(self.patterns["pipeline_sequential"], line):
             pos = re.search(self.patterns["pipeline_sequential"], line).end() - 1
-            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, 
-                                M(Messages.Hint.SEQUENTIAL_PIPELINES), self.lang)
+            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, Messages.Hint.SEQUENTIAL_PIPELINES)
         
         # Проверка синтаксиса определения источника и цели
         if re.match(self.patterns["source_syntax"], line):
-            # Отсутствует знак = в определении источника
             pos = line.find('sourse') + len('sourse')
-            return DSLSyntaxError(ErrorType.SYNTAX_SOURCE, line, line_num, pos, None, self.lang)
+            return DSLSyntaxError(ErrorType.SYNTAX_SOURCE, line, line_num, pos, None)
         
         if re.search(self.patterns["target_syntax"], line):
-            # Неверные скобки в определении цели
             pos = line.find('[')
-            return DSLSyntaxError(ErrorType.SYNTAX_TARGET, line, line_num, pos, None, self.lang)
+            return DSLSyntaxError(ErrorType.SYNTAX_TARGET, line, line_num, pos, None)
         
         # Проверка на финальный тип
         if ']' in line and '->' in line:  # Убедимся, что это строка маршрута
             last_bracket_pos = line.rfind(']')
             # После последней ] должна быть (
             if last_bracket_pos != -1 and ('(' not in line[last_bracket_pos:]):
-                return FinalTypeError(line, line_num, last_bracket_pos + 1, self.lang)
+                return FinalTypeError(line, line_num, last_bracket_pos + 1)
         
         # Проверка на символ направления
         direction_missing = False
@@ -144,14 +139,14 @@ class SyntaxErrorHandler:
                         break
         
         if direction_missing:
-            return FlowDirectionError(line, line_num, direction_pos, self.lang)
+            return FlowDirectionError(line, line_num, direction_pos)
         
         # Проверка на незакрытый пайплайн
         pipe_count = line.count('|')
         if pipe_count > 0 and pipe_count % 2 != 0:
             # Найти позицию последней вертикальной черты
             last_pipe_pos = line.rfind('|')
-            return PipelineClosingBarError(line, line_num, last_pipe_pos, self.lang)
+            return PipelineClosingBarError(line, line_num, last_pipe_pos)
         
         # Проверка на неправильные скобки
         if line.count('[') != line.count(']'):
@@ -162,23 +157,23 @@ class SyntaxErrorHandler:
                     # Проверяем, есть ли для этой скобки закрывающая
                     remaining = line[start_pos+1:]
                     if ']' not in remaining:
-                        return BracketMissingError(line, line_num, start_pos, self.lang)
+                        return BracketMissingError(line, line_num, start_pos)
             else:
                 # Если закрывающих скобок больше
                 for match in re.finditer(r'\]', line):
                     end_pos = match.start()
                     preceding = line[:end_pos]
                     if preceding.count('[') < preceding.count(']') + 1:
-                        return BracketMissingError(line, line_num, end_pos, self.lang)
+                        return BracketMissingError(line, line_num, end_pos)
         
         # Проверка отсутствия открывающей скобки
         opening_bracket_missing = re.search(r'(?<!\[)(\w+)\]', line)
         if opening_bracket_missing:
             pos = opening_bracket_missing.start(1)
-            return BracketMissingError(line, line_num, pos, self.lang)
+            return BracketMissingError(line, line_num, pos)
         
         # Если не удалось определить конкретную ошибку
-        return DSLSyntaxError(ErrorType.UNKNOWN, line, line_num, 0, None, self.lang)
+        return DSLSyntaxError(ErrorType.UNKNOWN, line, line_num, 0, None)
 
 
 # Конкретные классы ошибок с специфичной логикой определения позиции
@@ -186,8 +181,8 @@ class SyntaxErrorHandler:
 class PipelineClosingBarError(DSLSyntaxError):
     """Ошибка отсутствия закрывающей черты пайплайна"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.PIPELINE_CLOSING_BAR, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.PIPELINE_CLOSING_BAR, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Находим последний символ '|' и предполагаем, что ошибка после него
@@ -204,8 +199,8 @@ class PipelineClosingBarError(DSLSyntaxError):
 class BracketMissingError(DSLSyntaxError):
     """Ошибка отсутствия или неправильного использования квадратных скобок"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.BRACKET_MISSING, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.BRACKET_MISSING, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Проверяем несоответствие открывающих и закрывающих скобок
@@ -239,8 +234,8 @@ class BracketMissingError(DSLSyntaxError):
 class FlowDirectionError(DSLSyntaxError):
     """Ошибка символа направления потока"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.FLOW_DIRECTION, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.FLOW_DIRECTION, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Ищем позицию после ']', где должна быть стрелка
@@ -253,8 +248,8 @@ class FlowDirectionError(DSLSyntaxError):
 class FinalTypeError(DSLSyntaxError):
     """Ошибка финального типа"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.FINAL_TYPE, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.FINAL_TYPE, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Ищем последнюю скобку ']' и затем проверяем наличие '('
@@ -267,8 +262,8 @@ class FinalTypeError(DSLSyntaxError):
 class PipelineEmptyError(DSLSyntaxError):
     """Ошибка пустого пайплайна"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.PIPELINE_EMPTY, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.PIPELINE_EMPTY, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Находим позицию пустого пайплайна "||"

@@ -6,6 +6,8 @@ from typing import List, Any, Optional
 from .constants import PATTERNS, TokenType
 from .errors import SyntaxErrorHandler, PipelineEmptyError
 from .localization import Localization, Messages as M
+from .config import Config
+from .mess_core import pr
 
 
 @dataclass
@@ -22,12 +24,10 @@ class Token:
 class Lexer:
     """Лексический анализатор для преобразования текста в токены"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.tokens = []
-        self.debug = debug
-        self.error_handler = SyntaxErrorHandler(lang)
-        self.lang = lang
-        self.loc = Localization(lang)
+        self.error_handler = SyntaxErrorHandler()
+        self.loc = Localization(Config.get_lang())
 
     def _strip_quotes(self, s):
         """Удаляет кавычки из строкового значения"""
@@ -40,8 +40,7 @@ class Lexer:
         self.tokens = []
         lines = text.strip().split('\n')
         
-        if self.debug:
-            print(self.loc.get(M.Info.TOKENIZATION_START))
+        pr(M.Info.TOKENIZATION_START)
         
         for line_num, line in enumerate(lines, 1):
             original_line = line
@@ -51,8 +50,8 @@ class Lexer:
             
             # Проверка на пустой пайплайн до токенизации
             if '||' in original_line:
-                error = PipelineEmptyError(original_line, line_num, original_line.find('||') + 1, self.lang)
-                print(error)
+                error = PipelineEmptyError(original_line, line_num, original_line.find('||') + 1)
+                pr(str(error))
                 sys.exit(1)
                 
             # Анализируем строку на соответствие шаблонам
@@ -63,8 +62,7 @@ class Lexer:
                 match = re.match(PATTERNS[TokenType.SOURCE], line)
                 if match:
                     self.tokens.append(Token(TokenType.SOURCE, match.group(1), line_num))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.TOKEN_CREATED, type=TokenType.SOURCE.name, value=match.group(1)))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.SOURCE.name, value=match.group(1))
                     matched = True
             
             # Определение цели (target1=dict("target1"))
@@ -77,8 +75,7 @@ class Lexer:
                         'value': self._strip_quotes(match.group(3)) 
                     }
                     self.tokens.append(Token(TokenType.TARGET, target_info, line_num))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info)
                     matched = True
             
             # Заголовок маршрута (target1:)
@@ -86,8 +83,7 @@ class Lexer:
                 match = re.match(PATTERNS[TokenType.ROUTE_HEADER], line)
                 if match:
                     self.tokens.append(Token(TokenType.ROUTE_HEADER, match.group(1), line_num))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_HEADER.name, value=match.group(1)))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_HEADER.name, value=match.group(1))
                     matched = True
             
             # Строка маршрута с отступом
@@ -102,17 +98,15 @@ class Lexer:
                     }
                     
                     self.tokens.append(Token(TokenType.ROUTE_LINE, route_info, line_num))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info)
                     matched = True
             
             if not matched:
                 error = self.error_handler.analyze(line, line_num)
                 # Выводим ошибку и прерываем выполнение
-                print(error)
+                pr(str(error))
                 sys.exit(1)
         
-        if self.debug:
-            print(self.loc.get(M.Info.TOKENIZATION_FINISH, count=len(self.tokens)))
+        pr(M.Info.TOKENIZATION_FINISH, count=len(self.tokens))
         
         return self.tokens 

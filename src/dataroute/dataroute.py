@@ -7,7 +7,9 @@ from .lexer import Lexer
 from .parser import Parser
 from .json_generator import JSONGenerator
 from .errors import DSLSyntaxError
-from .localization import Localization, Messages as M, set_language
+from .localization import Messages as M
+from .config import Config
+from .mess_core import pr
 
 
 
@@ -16,20 +18,14 @@ class DataRouteParser:
     """Класс для парсинга и интерпретации DSL"""
     
     def __init__(self, debug=False, lang="ru"):
-        self.debug = debug
-        self.lang = lang
-        set_language(lang)  # Устанавливаем язык глобально
-        
-        # Создаем компоненты
-        self.lexer = Lexer(debug, lang)
-        self.parser = Parser(debug, lang)
-        self.json_generator = JSONGenerator(debug, lang)
-        self.loc = Localization(lang)
+        Config.set(lang=lang, debug=debug)
+        self.lexer = Lexer()
+        self.parser = Parser()
+        self.json_generator = JSONGenerator()
     
     def parse(self, text: str) -> Dict[str, Any]:
         """Обрабатывает DSL и возвращает структуру JSON"""
-        if self.debug:
-            print(self.loc.get(M.Info.PROCESSING_START))
+        pr(M.Info.PROCESSING_START)
         
         try:
             # Этап 1: Лексический анализ
@@ -41,19 +37,18 @@ class DataRouteParser:
             # Этап 3: Обход AST и генерация JSON
             result = ast.accept(self.json_generator)
             
-            if self.debug:
-                print(self.loc.get(M.Info.PROCESSING_FINISH))
+            pr(M.Info.PROCESSING_FINISH)
             
             return result
             
         except DSLSyntaxError as e:
             # Выводим ошибку в красивом формате
-            print(e)
+            pr(str(e))
             sys.exit(1)
         except Exception as e:
             # Для других ошибок выводим стандартное сообщение
-            print(self.loc.get(M.Error.GENERIC, message=str(e)))
-            if self.debug:
+            pr(M.Error.GENERIC, message=str(e))
+            if Config.is_debug():
                 traceback.print_exc()
             sys.exit(1)
 

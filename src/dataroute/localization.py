@@ -95,21 +95,4 @@ class Localization:
     
     def switch_language(self, lang: str) -> None:
         """Переключает текущий язык"""
-        self.lang = lang if lang in self.SUPPORTED_LANGUAGES else self.DEFAULT_LANGUAGE
-
-
-# Создаем глобальный экземпляр для удобного доступа
-L = Localization()
-
-
-def set_language(lang: str) -> None:
-    """Установка языка для глобальной локализации"""
-    global L
-    L.switch_language(lang)
-
-
-# Функция для удобного доступа к сообщениям
-def M(message_dict: dict, **kwargs) -> str:
-    """Получение локализованного сообщения из глобального объекта L"""
-    global L
-    return L.get(message_dict, **kwargs) 
+        self.lang = lang if lang in self.SUPPORTED_LANGUAGES else self.DEFAULT_LANGUAGE 

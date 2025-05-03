@@ -3,21 +3,21 @@ from typing import Dict, List, Any
 from .ast_nodes import ASTVisitor
 from .constants import PipelineItemType
 from .localization import Localization, Messages as M
+from .config import Config
+from .mess_core import pr
 
 
 class JSONGenerator(ASTVisitor):
     """Посетитель для генерации JSON из AST"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.result = {}
         self.source_type = None
         self.current_target = None
         self.void_counters = {}
         self.target_name_map = {}
-        self.target_info_map = {}  # Сохраняем инфу о таргетах
-        self.debug = debug
-        self.lang = lang
-        self.loc = Localization(lang)
+        self.target_info_map = {}
+        self.loc = Localization(Config.get_lang())
     
     def visit_program(self, node):
         """Обход корневого узла программы"""
@@ -27,21 +27,18 @@ class JSONGenerator(ASTVisitor):
             self.target_name_map[name] = target_node.value
         for child in node.children:
             child.accept(self)
-        if self.debug:
-            print(self.loc.get(M.Info.JSON_GENERATED, count=len(self.result)))
+        pr(M.Info.JSON_GENERATED, count=len(self.result))
         return self.result
     
     def visit_source(self, node):
         """Обход узла источника данных"""
         self.source_type = node.source_type
-        if self.debug:
-            print(self.loc.get(M.Info.SET_SOURCE_TYPE, type=self.source_type))
+        pr(M.Info.SET_SOURCE_TYPE, type=self.source_type)
     
     def visit_target(self, node):
         # Не добавляем ключ в self.result, только сохраняем target_name_map
         self.target_name_map[node.name] = node.value
-        if self.debug:
-            print(self.loc.get(M.Info.TARGET_ADDED, value=node.value, type=node.target_type))
+        pr(M.Info.TARGET_ADDED, value=node.value, type=node.target_type)
     
     def visit_route_block(self, node):
         """Обход блока маршрутов"""
@@ -62,8 +59,7 @@ class JSONGenerator(ASTVisitor):
         else:
             # Фоллбек, если вдруг не нашли
             self.current_target = target_name
-        if self.debug:
-            print(self.loc.get(M.Info.ROUTE_PROCESSING, target=self.current_target))
+        pr(M.Info.ROUTE_PROCESSING, target=self.current_target)
         # Обрабатываем все маршруты
         for route in node.routes:
             route.accept(self)
@@ -92,11 +88,7 @@ class JSONGenerator(ASTVisitor):
                 "final_name": target_field
             }
             
-            if self.debug:
-                print(self.loc.get(M.Info.ROUTE_ADDED, 
-                                  src=route_key, 
-                                  dst=target_field, 
-                                  type=target_field_type))
+            pr(M.Info.ROUTE_ADDED, src=route_key, dst=target_field, type=target_field_type)
     
     def visit_pipeline(self, node):
         """Обход конвейера обработки"""

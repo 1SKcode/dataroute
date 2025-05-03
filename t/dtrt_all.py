@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional, Union, Callable, Tuple
 from dataclasses import dataclass, field
 from enum import Enum, auto
+import threading
 
 # ==============================================================
 # ЛОКАЛИЗАЦИЯ И СООБЩЕНИЯ
@@ -331,15 +332,14 @@ class DSLSyntaxError(Exception):
                  line: str,
                  line_num: int,
                  position: Optional[int] = None,
-                 suggestion: Optional[str] = None,
-                 lang: str = "ru"):
+                 suggestion: Optional[str] = None):
         self.error_type = error_type
         self.line = line
         self.line_num = line_num
         self.position = position or self._guess_error_position(line)
         self.suggestion = suggestion
-        self.lang = lang
-        self.loc = Localization(lang)
+        self.lang = config.get_lang()
+        self.loc = Localization(self.lang)
         
         # Формируем сообщение об ошибке
         message = self._format_error_message()
@@ -384,8 +384,8 @@ class DSLSyntaxError(Exception):
 class PipelineClosingBarError(DSLSyntaxError):
     """Ошибка отсутствия закрывающей черты пайплайна"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.PIPELINE_CLOSING_BAR, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.PIPELINE_CLOSING_BAR, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Находим последний символ '|' и предполагаем, что ошибка после него
@@ -402,8 +402,8 @@ class PipelineClosingBarError(DSLSyntaxError):
 class BracketMissingError(DSLSyntaxError):
     """Ошибка отсутствия или неправильного использования квадратных скобок"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.BRACKET_MISSING, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.BRACKET_MISSING, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Проверяем несоответствие открывающих и закрывающих скобок
@@ -437,8 +437,8 @@ class BracketMissingError(DSLSyntaxError):
 class FlowDirectionError(DSLSyntaxError):
     """Ошибка символа направления потока"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.FLOW_DIRECTION, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.FLOW_DIRECTION, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Ищем позицию после ']', где должна быть стрелка
@@ -451,8 +451,8 @@ class FlowDirectionError(DSLSyntaxError):
 class FinalTypeError(DSLSyntaxError):
     """Ошибка финального типа"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.FINAL_TYPE, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.FINAL_TYPE, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Ищем последнюю скобку ']' и затем проверяем наличие '('
@@ -465,8 +465,8 @@ class FinalTypeError(DSLSyntaxError):
 class PipelineEmptyError(DSLSyntaxError):
     """Ошибка пустого пайплайна"""
     
-    def __init__(self, line: str, line_num: int, position: Optional[int] = None, lang: str = "ru"):
-        super().__init__(ErrorType.PIPELINE_EMPTY, line, line_num, position, None, lang)
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.PIPELINE_EMPTY, line, line_num, position, None)
     
     def _guess_error_position(self, line: str) -> int:
         # Находим позицию пустого пайплайна "||"
@@ -479,9 +479,9 @@ class PipelineEmptyError(DSLSyntaxError):
 class SyntaxErrorHandler:
     """Обработчик синтаксических ошибок DSL"""
     
-    def __init__(self, lang: str = "ru"):
-        self.lang = lang
-        self.loc = Localization(lang)
+    def __init__(self):
+        self.lang = config.get_lang()
+        self.loc = Localization(self.lang)
         
         # Паттерны для частичных совпадений
         self.patterns = {
@@ -518,30 +518,30 @@ class SyntaxErrorHandler:
         # 0. Проверка на пустой пайплайн
         if re.search(self.patterns["pipeline_empty"], line):
             pos = re.search(self.patterns["pipeline_empty"], line).start() + 1
-            return PipelineEmptyError(line, line_num, pos, self.lang)
+            return PipelineEmptyError(line, line_num, pos)
         
         # 0.1 Проверка на последовательные пайплайны
         if re.search(self.patterns["pipeline_sequential"], line):
             pos = re.search(self.patterns["pipeline_sequential"], line).end() - 1
-            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, self.loc.get(MessageId.HINT_SEQUENTIAL_PIPELINES), self.lang)
+            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, self.loc.get(MessageId.HINT_SEQUENTIAL_PIPELINES))
         
         # 0.2 Проверка синтаксиса определения источника и цели
         if re.match(self.patterns["source_syntax"], line):
             # Отсутствует знак = в определении источника
             pos = line.find('sourse') + len('sourse')
-            return DSLSyntaxError(ErrorType.SYNTAX_SOURCE, line, line_num, pos, None, self.lang)
+            return DSLSyntaxError(ErrorType.SYNTAX_SOURCE, line, line_num, pos, None)
         
         if re.search(self.patterns["target_syntax"], line):
             # Неверные скобки в определении цели
             pos = line.find('[')
-            return DSLSyntaxError(ErrorType.SYNTAX_TARGET, line, line_num, pos, None, self.lang)
+            return DSLSyntaxError(ErrorType.SYNTAX_TARGET, line, line_num, pos, None)
         
         # 1. Проверка на финальный тип
         if ']' in line and '->' in line:  # Убедимся, что это строка маршрута
             last_bracket_pos = line.rfind(']')
             # После последней ] должна быть (
             if last_bracket_pos != -1 and ('(' not in line[last_bracket_pos:]):
-                return FinalTypeError(line, line_num, last_bracket_pos + 1, self.lang)
+                return FinalTypeError(line, line_num, last_bracket_pos + 1)
         
         # 2. Проверка на символ направления
         direction_missing = False
@@ -560,14 +560,14 @@ class SyntaxErrorHandler:
                         break
         
         if direction_missing:
-            return FlowDirectionError(line, line_num, direction_pos, self.lang)
+            return FlowDirectionError(line, line_num, direction_pos)
         
         # 3. Проверка на незакрытый пайплайн
         pipe_count = line.count('|')
         if pipe_count > 0 and pipe_count % 2 != 0:
             # Найти позицию последней вертикальной черты
             last_pipe_pos = line.rfind('|')
-            return PipelineClosingBarError(line, line_num, last_pipe_pos, self.lang)
+            return PipelineClosingBarError(line, line_num, last_pipe_pos)
         
         # 4. Проверка на неправильные скобки
         if line.count('[') != line.count(']'):
@@ -578,23 +578,23 @@ class SyntaxErrorHandler:
                     # Проверяем, есть ли для этой скобки закрывающая
                     remaining = line[start_pos+1:]
                     if ']' not in remaining:
-                        return BracketMissingError(line, line_num, start_pos, self.lang)
+                        return BracketMissingError(line, line_num, start_pos)
             else:
                 # Если закрывающих скобок больше
                 for match in re.finditer(r'\]', line):
                     end_pos = match.start()
                     preceding = line[:end_pos]
                     if preceding.count('[') < preceding.count(']') + 1:
-                        return BracketMissingError(line, line_num, end_pos, self.lang)
+                        return BracketMissingError(line, line_num, end_pos)
         
         # Проверка отсутствия открывающей скобки
         opening_bracket_missing = re.search(r'(?<!\[)(\w+)\]', line)
         if opening_bracket_missing:
             pos = opening_bracket_missing.start(1)
-            return BracketMissingError(line, line_num, pos, self.lang)
+            return BracketMissingError(line, line_num, pos)
         
         # Если не удалось определить конкретную ошибку
-        return DSLSyntaxError(ErrorType.UNKNOWN, line, line_num, 0, None, self.lang)
+        return DSLSyntaxError(ErrorType.UNKNOWN, line, line_num, 0, None)
 
 
 # ==============================================================
@@ -839,13 +839,10 @@ class RouteLineNode(ASTNode):
 class Lexer:
     """Лексический анализатор для преобразования текста в токены"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.tokens = []
-        self.debug = debug
-        self.error_handler = SyntaxErrorHandler(lang)
-        self.lang = lang
-        self.loc = Localization(lang)
-
+        self.error_handler = SyntaxErrorHandler()
+    
     def _strip_quotes(self, s):
         if len(s) >= 2 and s[0] == s[-1] and s[0] in {"'", '"'}:
             return s[1:-1]
@@ -856,8 +853,7 @@ class Lexer:
         self.tokens = []
         lines = text.strip().split('\n')
         
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_TOKENIZATION_START))
+        pr(MessageId.INFO_TOKENIZATION_START, msg_type=MessageType.DEBUG)
         
         for line_num, line in enumerate(lines, 1):
             original_line = line
@@ -867,8 +863,8 @@ class Lexer:
             
             # Проверка на пустой пайплайн до токенизации
             if '||' in original_line:
-                error = PipelineEmptyError(original_line, line_num, original_line.find('||') + 1, self.lang)
-                print(error)
+                error = PipelineEmptyError(original_line, line_num, original_line.find('||') + 1)
+                pr(str(error))
                 sys.exit(1)
                 
             # Анализируем строку на соответствие шаблонам
@@ -879,8 +875,7 @@ class Lexer:
                 match = re.match(PATTERNS[TokenType.SOURCE], line)
                 if match:
                     self.tokens.append(Token(TokenType.SOURCE, match.group(1), line_num))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.SOURCE.name, value=match.group(1)))
+                    pr(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.SOURCE.name, value=match.group(1), msg_type=MessageType.DEBUG)
                     matched = True
             
             # Определение цели (target1=dict("target1"))
@@ -893,8 +888,7 @@ class Lexer:
                         'value': self._strip_quotes(match.group(3)) 
                     }
                     self.tokens.append(Token(TokenType.TARGET, target_info, line_num))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info))
+                    pr(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info, msg_type=MessageType.DEBUG)
                     matched = True
             
             # Заголовок маршрута (target1:)
@@ -902,8 +896,7 @@ class Lexer:
                 match = re.match(PATTERNS[TokenType.ROUTE_HEADER], line)
                 if match:
                     self.tokens.append(Token(TokenType.ROUTE_HEADER, match.group(1), line_num))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.ROUTE_HEADER.name, value=match.group(1)))
+                    pr(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.ROUTE_HEADER.name, value=match.group(1), msg_type=MessageType.DEBUG)
                     matched = True
             
             # Строка маршрута с отступом
@@ -918,19 +911,17 @@ class Lexer:
                     }
                     
                     self.tokens.append(Token(TokenType.ROUTE_LINE, route_info, line_num))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info))
+                    pr(MessageId.DEBUG_TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info, msg_type=MessageType.DEBUG)
                     matched = True
             
             if not matched:
                 # Вместо простого вывода ошибки, используем обработчик ошибок
                 error = self.error_handler.analyze(line, line_num)
                 # Выводим ошибку и прерываем выполнение
-                print(error)
+                pr(str(error))
                 sys.exit(1)
         
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_TOKENIZATION_FINISH, count=len(self.tokens)))
+        pr(MessageId.INFO_TOKENIZATION_FINISH, count=len(self.tokens), msg_type=MessageType.DEBUG)
         
         return self.tokens
 
@@ -942,22 +933,18 @@ class Lexer:
 class Parser:
     """Синтаксический анализатор для построения AST из токенов"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.tokens = []
         self.position = 0
-        self.debug = debug
-        self.targets = {}  # Сохраняем таргеты по имени
-        self.lang = lang
-        self.error_handler = SyntaxErrorHandler(lang)
-        self.loc = Localization(lang)
+        self.targets = {}
+        self.error_handler = SyntaxErrorHandler()
     
     def parse(self, tokens: List[Token]) -> ProgramNode:
         """Создает AST из токенов"""
         self.tokens = tokens
         self.position = 0
         program = ProgramNode()
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_PARSING_START))
+        pr(MessageId.INFO_PARSING_START, msg_type=MessageType.DEBUG)
         
         # Проверка на наличие хотя бы одного определения источника
         source_found = False
@@ -968,7 +955,7 @@ class Parser:
         
         if not source_found:
             error_line = "sourse= (missing)"
-            raise DSLSyntaxError(ErrorType.SYNTAX_SOURCE, error_line, 0, 0, None, self.lang)
+            raise DSLSyntaxError(ErrorType.SYNTAX_SOURCE, error_line, 0, 0, None)
         
         while self.position < len(self.tokens):
             token = self.tokens[self.position]
@@ -983,8 +970,8 @@ class Parser:
                 # Проверка наличия определения цели для маршрута
                 if route_block.target_name not in self.targets:
                     error_line = f"{route_block.target_name}:"
-                    hint = self.loc.get(MessageId.HINT_TARGET_DEFINITION_MISSING, target=route_block.target_name)
-                    raise DSLSyntaxError(ErrorType.SEMANTIC_TARGET, error_line, token.position, 0, hint, self.lang)
+                    hint = Localization(config.get_lang()).get(MessageId.HINT_TARGET_DEFINITION_MISSING, target=route_block.target_name)
+                    raise DSLSyntaxError(ErrorType.SEMANTIC_TARGET, error_line, token.position, 0, hint)
                 
                 program.children.append(route_block)
             else:
@@ -997,10 +984,9 @@ class Parser:
         route_blocks = [node for node in program.children if node.node_type == NodeType.ROUTE_BLOCK]
         if not route_blocks:
             error_line = "target: (missing)"
-            raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None, self.lang)
+            raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None)
         
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_PARSING_FINISH, count=len(program.children)))
+        pr(MessageId.INFO_PARSING_FINISH, count=len(program.children), msg_type=MessageType.DEBUG)
         
         return program
     
@@ -1028,8 +1014,7 @@ class Parser:
         
         route_block = RouteBlockNode(target_name)
         
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_PARSING_ROUTE_BLOCK, target=target_name))
+        pr(MessageId.INFO_PARSING_ROUTE_BLOCK, target=target_name, msg_type=MessageType.DEBUG)
         
         # Собираем все строки маршрутов для этого блока
         while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
@@ -1058,10 +1043,7 @@ class Parser:
                 route_data['target_field_type'] or 'str'
             )
         
-        if self.debug:
-            print(self.loc.get(MessageId.DEBUG_ROUTE_LINE_CREATED, 
-                             src=src_field.name, 
-                             dst=target_field.name if target_field else '-'))
+        pr(MessageId.DEBUG_ROUTE_LINE_CREATED, src=src_field.name, dst=target_field.name if target_field else '-', msg_type=MessageType.DEBUG)
         
         return RouteLineNode(src_field, pipeline, target_field)
     
@@ -1085,8 +1067,8 @@ class Parser:
             
             for segment in segments:
                 segment = segment.strip()
-                if not segment and self.debug:
-                    print(self.loc.get(MessageId.WARN_EMPTY_PIPELINE_SEGMENT))
+                if not segment:
+                    pr(MessageId.WARN_EMPTY_PIPELINE_SEGMENT, msg_type=MessageType.DEBUG)
                 
                 if not segment:
                     continue
@@ -1097,20 +1079,14 @@ class Parser:
                         PipelineItemType.PY_FUNC,
                         segment
                     ))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_PIPELINE_ITEM_ADDED, 
-                                         type=PipelineItemType.PY_FUNC.value, 
-                                         value=segment))
+                    pr(MessageId.DEBUG_PIPELINE_ITEM_ADDED, type=PipelineItemType.PY_FUNC.value, value=segment, msg_type=MessageType.DEBUG)
                 else:
                     # Прямое отображение
                     pipeline.items.append(PipelineItemNode(
                         PipelineItemType.DIRECT,
                         segment
                     ))
-                    if self.debug:
-                        print(self.loc.get(MessageId.DEBUG_PIPELINE_ITEM_ADDED, 
-                                         type=PipelineItemType.DIRECT.value, 
-                                         value=segment))
+                    pr(MessageId.DEBUG_PIPELINE_ITEM_ADDED, type=PipelineItemType.DIRECT.value, value=segment, msg_type=MessageType.DEBUG)
         
         return pipeline
 
@@ -1122,16 +1098,13 @@ class Parser:
 class JSONGenerator(ASTVisitor):
     """Посетитель для генерации JSON из AST"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.result = {}
         self.source_type = None
         self.current_target = None
         self.void_counters = {}
         self.target_name_map = {}
-        self.target_info_map = {}  # Сохраняем инфу о таргетах
-        self.debug = debug
-        self.lang = lang
-        self.loc = Localization(lang)
+        self.target_info_map = {}
     
     def visit_program(self, node):
         """Обход корневого узла программы"""
@@ -1141,21 +1114,18 @@ class JSONGenerator(ASTVisitor):
             self.target_name_map[name] = target_node.value
         for child in node.children:
             child.accept(self)
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_JSON_GENERATED, count=len(self.result)))
+        pr(MessageId.INFO_JSON_GENERATED, count=len(self.result), msg_type=MessageType.DEBUG)
         return self.result
     
     def visit_source(self, node):
         """Обход узла источника данных"""
         self.source_type = node.source_type
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_SET_SOURCE_TYPE, type=self.source_type))
+        pr(MessageId.INFO_SET_SOURCE_TYPE, type=self.source_type, msg_type=MessageType.DEBUG)
     
     def visit_target(self, node):
         # Не добавляем ключ в self.result, только сохраняем target_name_map
         self.target_name_map[node.name] = node.value
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_TARGET_ADDED, value=node.value, type=node.target_type))
+        pr(MessageId.INFO_TARGET_ADDED, value=node.value, type=node.target_type, msg_type=MessageType.DEBUG)
     
     def visit_route_block(self, node):
         """Обход блока маршрутов"""
@@ -1176,8 +1146,7 @@ class JSONGenerator(ASTVisitor):
         else:
             # Фоллбек, если вдруг не нашли
             self.current_target = target_name
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_ROUTE_PROCESSING, target=self.current_target))
+        pr(MessageId.INFO_ROUTE_PROCESSING, target=self.current_target, msg_type=MessageType.DEBUG)
         # Обрабатываем все маршруты
         for route in node.routes:
             route.accept(self)
@@ -1206,11 +1175,7 @@ class JSONGenerator(ASTVisitor):
                 "final_name": target_field
             }
             
-            if self.debug:
-                print(self.loc.get(MessageId.INFO_ROUTE_ADDED, 
-                                 src=route_key, 
-                                 dst=target_field, 
-                                 type=target_field_type))
+            pr(MessageId.INFO_ROUTE_ADDED, src=route_key, dst=target_field, type=target_field_type, msg_type=MessageType.DEBUG)
     
     def visit_pipeline(self, node):
         """Обход конвейера обработки"""
@@ -1278,17 +1243,14 @@ class DataRouteParser:
     """Класс для парсинга и интерпретации DSL"""
     
     def __init__(self, debug=False, lang="ru"):
-        self.lexer = Lexer(debug, lang)
-        self.parser = Parser(debug, lang)
-        self.json_generator = JSONGenerator(debug, lang)
-        self.debug = debug
-        self.lang = lang
-        self.loc = Localization(lang)
+        config.set(lang=lang, debug=debug)
+        self.lexer = Lexer()
+        self.parser = Parser()
+        self.json_generator = JSONGenerator()
     
     def parse(self, text: str) -> Dict:
         """Обрабатывает DSL и возвращает структуру JSON"""
-        if self.debug:
-            print(self.loc.get(MessageId.INFO_PROCESSING_START))
+        pr(MessageId.INFO_PROCESSING_START, msg_type=MessageType.DEBUG)
         
         try:
             # Этап 1: Лексический анализ
@@ -1300,22 +1262,89 @@ class DataRouteParser:
             # Этап 3: Обход AST и генерация JSON
             result = ast.accept(self.json_generator)
             
-            if self.debug:
-                print(self.loc.get(MessageId.INFO_PROCESSING_FINISH))
+            pr(MessageId.INFO_PROCESSING_FINISH, msg_type=MessageType.DEBUG)
             
             return result
             
         except DSLSyntaxError as e:
             # Выводим ошибку в красивом формате
-            print(e)
+            pr(str(e))
             sys.exit(1)
         except Exception as e:
             # Для других ошибок выводим стандартное сообщение
-            print(self.loc.get(MessageId.ERR_GENERIC, message=str(e)))
-            if self.debug:
+            pr(MessageId.ERR_GENERIC, message=str(e))
+            if config.is_debug():
                 import traceback
                 traceback.print_exc()
             sys.exit(1)
+
+
+# ==============================================================
+# КОНФИГУРАЦИЯ
+# ==============================================================
+
+class DTRTConfig:
+    """Глобальная конфигурация для языка и режима отладки"""
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if not cls._instance:
+            with cls._lock:
+                if not cls._instance:
+                    cls._instance = super().__new__(cls)
+                    cls._instance.lang = "ru"
+                    cls._instance.debug = False
+        return cls._instance
+
+    @classmethod
+    def set(cls, lang=None, debug=None):
+        inst = cls()
+        if lang is not None:
+            inst.lang = lang
+        if debug is not None:
+            inst.debug = debug
+
+    @classmethod
+    def get_lang(cls):
+        return cls().lang
+
+    @classmethod
+    def is_debug(cls):
+        return cls().debug
+
+# Глобальный объект
+config = DTRTConfig()
+
+# ==============================================================
+# УДОБНАЯ ПЕЧАТЬ С ЛОКАЛИЗАЦИЕЙ
+# ==============================================================
+
+def pr(msg_id, *args, msg_type=None, **kwargs):
+    """
+    Универсальная печать локализованных сообщений.
+    msg_id: MessageId или строка
+    msg_type: MessageType (если debug — печатает только если debug включен)
+    args/kwargs: параметры для format
+    """
+    from sys import stdout
+    lang = config.get_lang()
+    debug = config.is_debug()
+    loc = Localization(lang)
+    # Если тип debug и debug выключен — не печатаем
+    if msg_type == MessageType.DEBUG and not debug:
+        return
+    # Если msg_id — MessageId, берем из локализации
+    if isinstance(msg_id, MessageId):
+        msg = loc.get(msg_id, **kwargs)
+    else:
+        msg = str(msg_id)
+        if kwargs:
+            try:
+                msg = msg.format(**kwargs)
+            except Exception:
+                pass
+    print(msg, *args, file=stdout)
 
 
 # ==============================================================

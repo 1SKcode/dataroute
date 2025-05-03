@@ -9,27 +9,26 @@ from .constants import ErrorType, PipelineItemType
 from .errors import DSLSyntaxError, SyntaxErrorHandler
 from .lexer import Token
 from .localization import Localization, Messages as M
+from .config import Config
+from .mess_core import pr
 
 
 class Parser:
     """Синтаксический анализатор для построения AST из токенов"""
     
-    def __init__(self, debug=False, lang="ru"):
+    def __init__(self):
         self.tokens = []
         self.position = 0
-        self.debug = debug
-        self.targets = {}  # Сохраняем таргеты по имени
-        self.lang = lang
-        self.error_handler = SyntaxErrorHandler(lang)
-        self.loc = Localization(lang)
+        self.targets = {}
+        self.error_handler = SyntaxErrorHandler()
+        self.loc = Localization(Config.get_lang())
     
     def parse(self, tokens: List[Token]) -> ProgramNode:
         """Создает AST из токенов"""
         self.tokens = tokens
         self.position = 0
         program = ProgramNode()
-        if self.debug:
-            print(self.loc.get(M.Info.PARSING_START))
+        pr(M.Info.PARSING_START)
         
         # Проверка на наличие хотя бы одного определения источника
         source_found = False
@@ -40,7 +39,7 @@ class Parser:
         
         if not source_found:
             error_line = "sourse= (missing)"
-            raise DSLSyntaxError(ErrorType.SYNTAX_SOURCE, error_line, 0, 0, None, self.lang)
+            raise DSLSyntaxError(ErrorType.SYNTAX_SOURCE, error_line, 0, 0, None)
         
         while self.position < len(self.tokens):
             token = self.tokens[self.position]
@@ -56,7 +55,7 @@ class Parser:
                 if route_block.target_name not in self.targets:
                     error_line = f"{route_block.target_name}:"
                     hint = self.loc.get(M.Hint.TARGET_DEFINITION_MISSING, target=route_block.target_name)
-                    raise DSLSyntaxError(ErrorType.SEMANTIC_TARGET, error_line, token.position, 0, hint, self.lang)
+                    raise DSLSyntaxError(ErrorType.SEMANTIC_TARGET, error_line, token.position, 0, hint)
                 
                 program.children.append(route_block)
             else:
@@ -69,10 +68,9 @@ class Parser:
         route_blocks = [node for node in program.children if node.node_type == NodeType.ROUTE_BLOCK]
         if not route_blocks:
             error_line = "target: (missing)"
-            raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None, self.lang)
+            raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None)
         
-        if self.debug:
-            print(self.loc.get(M.Info.PARSING_FINISH, count=len(program.children)))
+        pr(M.Info.PARSING_FINISH, count=len(program.children))
         
         return program
     
@@ -100,8 +98,7 @@ class Parser:
         
         route_block = RouteBlockNode(target_name)
         
-        if self.debug:
-            print(self.loc.get(M.Info.PARSING_ROUTE_BLOCK, target=target_name))
+        pr(M.Info.PARSING_ROUTE_BLOCK, target=target_name)
         
         # Собираем все строки маршрутов для этого блока
         while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
@@ -130,10 +127,7 @@ class Parser:
                 route_data['target_field_type'] or 'str'
             )
         
-        if self.debug:
-            print(self.loc.get(M.Debug.ROUTE_LINE_CREATED, 
-                              src=src_field.name, 
-                              dst=target_field.name if target_field else '-'))
+        pr(M.Debug.ROUTE_LINE_CREATED, src=src_field.name, dst=target_field.name if target_field else '-')
         
         return RouteLineNode(src_field, pipeline, target_field)
     
@@ -157,8 +151,8 @@ class Parser:
             
             for segment in segments:
                 segment = segment.strip()
-                if not segment and self.debug:
-                    print(self.loc.get(M.Warning.EMPTY_PIPELINE_SEGMENT))
+                if not segment:
+                    pr(M.Warning.EMPTY_PIPELINE_SEGMENT)
                 
                 if not segment:
                     continue
@@ -169,20 +163,14 @@ class Parser:
                         PipelineItemType.PY_FUNC,
                         segment
                     ))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.PIPELINE_ITEM_ADDED, 
-                                          type=PipelineItemType.PY_FUNC.value, 
-                                          value=segment))
+                    pr(M.Debug.PIPELINE_ITEM_ADDED, type=PipelineItemType.PY_FUNC.value, value=segment)
                 else:
                     # Прямое отображение
                     pipeline.items.append(PipelineItemNode(
                         PipelineItemType.DIRECT,
                         segment
                     ))
-                    if self.debug:
-                        print(self.loc.get(M.Debug.PIPELINE_ITEM_ADDED, 
-                                          type=PipelineItemType.DIRECT.value, 
-                                          value=segment))
+                    pr(M.Debug.PIPELINE_ITEM_ADDED, type=PipelineItemType.DIRECT.value, value=segment)
         
         return pipeline
 
