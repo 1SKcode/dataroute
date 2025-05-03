@@ -28,7 +28,7 @@ class Parser:
         self.tokens = tokens
         self.position = 0
         program = ProgramNode()
-        pr(M.Info.PARSING_START)
+        pr(M.Debug.PARSING_START)
         
         # Проверка на наличие хотя бы одного определения источника
         source_found = False
@@ -48,6 +48,7 @@ class Parser:
             elif token.type == TokenType.TARGET:
                 target_node = self._parse_target()
                 self.targets[target_node.name] = target_node
+                program.children.append(target_node)
             elif token.type == TokenType.ROUTE_HEADER:
                 route_block = self._parse_route_block()
                 
@@ -70,7 +71,7 @@ class Parser:
             error_line = "target: (missing)"
             raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None)
         
-        pr(M.Info.PARSING_FINISH, count=len(program.children))
+        pr(M.Debug.PARSING_FINISH, count=len(program.children))
         
         return program
     
@@ -98,7 +99,7 @@ class Parser:
         
         route_block = RouteBlockNode(target_name)
         
-        pr(M.Info.PARSING_ROUTE_BLOCK, target=target_name)
+        pr(M.Debug.PARSING_ROUTE_BLOCK, target=target_name)
         
         # Собираем все строки маршрутов для этого блока
         while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:

@@ -59,7 +59,7 @@ class JSONGenerator(ASTVisitor):
         else:
             # Фоллбек, если вдруг не нашли
             self.current_target = target_name
-        pr(M.Info.ROUTE_PROCESSING, target=self.current_target)
+        pr(M.Debug.ROUTE_PROCESSING, target=self.current_target)
         # Обрабатываем все маршруты
         for route in node.routes:
             route.accept(self)

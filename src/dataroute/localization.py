@@ -5,35 +5,28 @@ class Messages:
     """Контейнер для сообщений локализации по категориям"""
     
     class Info:
-        TOKENIZATION_START = {"ru": ">Y<Начинаю токенизацию...>RS<", "en": ">Y<Starting tokenization...>RS<"}
-        TOKENIZATION_FINISH = {"ru": "Токенизация завершена. Создано токенов: {count}", "en": "Tokenization completed. Tokens created: {count}"}
-        PARSING_START = {"ru": "Начинаю синтаксический анализ...", "en": "Starting parsing..."}
-        PARSING_FINISH = {"ru": "Синтаксический анализ завершен. Создано узлов: {count}", "en": "Parsing completed. Nodes created: {count}"}
-        NODES_CREATED = {"ru": "Создано узлов: {count}", "en": "Nodes created: {count}"}
-        JSON_GENERATED = {"ru": "JSON сгенерирован. {count} целей", "en": "JSON generated. {count} targets"}
-        SET_SOURCE_TYPE = {"ru": "Установлен тип источника: {type}", "en": "Source type set: {type}"}
-        ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}
-        ROUTE_ADDED = {"ru": "Добавлен маршрут: {src} -> {dst}({type})", "en": "Route added: {src} -> {dst}({type})"}
-        TARGET_ADDED = {"ru": "Добавлена цель: {value} (тип: {type})", "en": "Target added: {value} (type: {type})"}
-        PROCESSING_START = {"ru": "=== Начало обработки DSL ===", "en": "=== DSL Processing Started ==="}
-        PROCESSING_FINISH = {"ru": "=== Обработка DSL завершена ===", "en": "=== DSL Processing Completed ==="}
-        PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
+        PROCESSING_START = {"ru": "=== >Y<Начало обработки DSL>RS< ===", "en": "=== >Y<DSL Processing Started>RS< ==="}
+        SET_SOURCE_TYPE = {"ru": "Установлен тип источника: >G<{type}>RS<", "en": "Source type detected: >G<{type}>RS<"}
+        JSON_GENERATED = {"ru": ">G<>BOLD<[OK]>RS< >G<Компиляция в промежуточный код завершена>RS< - >G<>BOLD<JSON сгенерирован.>RS<Целей: {count} ", "en": ">G<>BOLD<[OK]>RS< >G<Compilation to intermediate code completed>RS< - >G<>BOLD<JSON generated.>RS<Targets: {count} "}
+        ROUTE_ADDED = {"ru": "Добавлен маршрут: {src} -> {dst}(>O<{type}>RS<)", "en": "Route added: {src} -> {dst}(>O<{type}>RS<)"}
+        TARGET_ADDED = {"ru": "Добавлена цель: {value} (тип: >O<>BOLD<{type}>RS<)", "en": "Target added: {value} (type: >O<>BOLD<{type}>RS<)"}
+        PROCESSING_FINISH = {"ru": "=== >G<Обработка DSL завершена>RS< ===", "en": "=== >G<DSL Processing Completed>RS< ==="}
 
     class Warning:
-        EMPTY_PIPELINE_SEGMENT = {"ru": "Предупреждение: Обнаружен пустой сегмент пайплайна", "en": "Warning: Empty pipeline segment detected"}
+        EMPTY_PIPELINE_SEGMENT = {"ru": ">O<Предупреждение:>RS< Обнаружен пустой сегмент пайплайна", "en": ">O<Warning:>RS< Empty pipeline segment detected"}
 
     class Error:
-        PIPELINE_CLOSING_BAR = {"ru": "Закрывающая прямая черта пайплайна не найдена", "en": "Pipeline closing bar is missing"}
-        BRACKET_MISSING = {"ru": "Квадратная скобка определения сущности не найдена", "en": "Entity definition bracket is missing"}
-        FLOW_DIRECTION = {"ru": "Символ направляющего потока не найден. Используйте ->, =>, - или >", "en": "Flow direction symbol is missing. Use ->, =>, - or >"}
-        FINAL_TYPE = {"ru": "Финальный тип не задан или задан некорректно", "en": "Final type is not specified or incorrectly specified"}
-        SYNTAX_SOURCE = {"ru": "Неверный синтаксис определения источника", "en": "Invalid source definition syntax"}
-        SYNTAX_TARGET = {"ru": "Неверный синтаксис определения цели", "en": "Invalid target definition syntax"}
-        SEMANTIC_TARGET = {"ru": "Ошибка в определении цели", "en": "Error in target definition"}
-        SEMANTIC_ROUTES = {"ru": "Ошибка в определении маршрутов", "en": "Error in route definitions"}
-        PIPELINE_EMPTY = {"ru": "Пустой пайплайн обнаружен", "en": "Empty pipeline detected"}
-        UNKNOWN = {"ru": "Неизвестная синтаксическая ошибка", "en": "Unknown syntax error"}
-        GENERIC = {"ru": "Ошибка при обработке DSL: {message}", "en": "Error processing DSL: {message}"}
+        PIPELINE_CLOSING_BAR = {"ru": ">R<Закрывающая прямая черта пайплайна не найдена>RS<", "en": ">R<Pipeline closing bar is missing>RS<"}
+        BRACKET_MISSING = {"ru": ">R<Квадратная скобка определения сущности не найдена>RS<", "en": ">R<Entity definition bracket is missing>RS<"}
+        FLOW_DIRECTION = {"ru": ">R<Символ направляющего потока не найден. Используйте ->, =>, - или >", "en": ">R<Flow direction symbol is missing. Use ->, =>, - or >"}
+        FINAL_TYPE = {"ru": ">R<Финальный тип не задан или задан некорректно>RS<", "en": ">R<Final type is not specified or incorrectly specified>RS<"}
+        SYNTAX_SOURCE = {"ru": ">R<Неверный синтаксис определения источника>RS<", "en": ">R<Invalid source definition syntax>RS<"}
+        SYNTAX_TARGET = {"ru": ">R<Неверный синтаксис определения цели>RS<", "en": ">R<Invalid target definition syntax>RS< "}
+        SEMANTIC_TARGET = {"ru": ">R<Ошибка в определении цели>RS<", "en": ">R<Error in target definition>RS<"}
+        SEMANTIC_ROUTES = {"ru": ">R<Ошибка в определении маршрутов>RS<", "en": ">R<Error in route definitions>RS<"}
+        PIPELINE_EMPTY = {"ru": ">R<Пустой пайплайн обнаружен>RS<", "en": ">R<Empty pipeline detected>RS<"}
+        UNKNOWN = {"ru": ">R<Неизвестная синтаксическая ошибка>RS<", "en": ">R<Unknown syntax error>RS<"}
+        GENERIC = {"ru": ">R<Ошибка при обработке DSL:>RS< {message}", "en": ">R<Error processing DSL:>RS< {message}"}
         LINE_PREFIX = {"ru": ">R<Ошибка в строке {line_num}:>RS<", "en": ">R<Error in line {line_num}:>RS<"}
 
     class Hint:
@@ -47,9 +40,15 @@ class Messages:
         SEQUENTIAL_PIPELINES = {"ru": "Обнаружены последовательные пайплайны без данных между ними", "en": "Sequential pipelines detected without data between them"}
         TARGET_DEFINITION_MISSING = {"ru": "Не найдено определение цели для маршрута {target}", "en": "Target definition not found for route {target}"}
         ROUTES_MISSING = {"ru": "Отсутствуют определения маршрутов (target:)", "en": "Route definitions are missing (target:)"}
-        LABEL = {"ru": "Возможное решение:", "en": "Possible solution:"}
+        LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
 
     class Debug:
+        PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
+        ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}
+        PARSING_FINISH = {"ru": ">G<Синтаксический анализ завершен. Создано узлов:>RS< >BOLD<{count}>RS<", "en": ">G<Parsing completed. Nodes created:>RS< >BOLD<{count}>RS<"}
+        PARSING_START = {"ru": ">Y<Начало синтаксического анализа...>RS<", "en": ">Y<Starting parsing...>RS<"}
+        TOKENIZATION_FINISH = {"ru": ">G<Токенизация завершена. Создано токенов:>RS< >BOLD<{count}>RS<", "en": ">G<Tokenization completed. Tokens created:>RS< >BOLD<{count}>RS<"}
+        TOKENIZATION_START = {"ru": ">Y<Начало токенизации...>RS<", "en": ">Y<Starting tokenization...>RS<"}
         TOKEN_CREATED = {"ru": "Токен {type}: {value}", "en": "Token {type}: {value}"}
         PIPELINE_ITEM_ADDED = {"ru": "Добавлен элемент пайплайна: {type} {value}", "en": "Pipeline item added: {type} {value}"}
         ROUTE_LINE_CREATED = {"ru": "Создана строка маршрута: {src} -> ... -> {dst}", "en": "Route line created: {src} -> ... -> {dst}"}

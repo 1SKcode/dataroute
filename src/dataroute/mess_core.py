@@ -4,11 +4,12 @@ import sys
 import re
 
 ANSI_COLORS = {
-    "RS": "\033[0m",
-    "G": "\033[32m",
-    "R": "\033[31m",
-    "Y": "\033[33m",
-    "BOLD": "\033[1m",
+    "RS": "\033[0m",        # Сброс цвета
+    "G": "\033[32m",        # Зеленый
+    "R": "\033[31m",        # Красный
+    "Y": "\033[33m",        # Желтый
+    "O": "\033[38;5;208m",  # Оранжевый
+    "BOLD": "\033[1m",      # Жирный шрифт акцента
 }
 
 def colorize(text: str) -> str:
@@ -43,5 +44,3 @@ def pr(msg, *args, **kwargs):
     text = Localization(Config.get_lang()).get(msg, **kwargs)
     text = colorize(text)
     print(text, *args, file=sys.stdout)
-
-# В будущем: notify, log, warn, error и т.д. 

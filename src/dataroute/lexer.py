@@ -40,7 +40,7 @@ class Lexer:
         self.tokens = []
         lines = text.strip().split('\n')
         
-        pr(M.Info.TOKENIZATION_START)
+        pr(M.Debug.TOKENIZATION_START)
         
         for line_num, line in enumerate(lines, 1):
             original_line = line
@@ -107,6 +107,6 @@ class Lexer:
                 pr(str(error))
                 sys.exit(1)
         
-        pr(M.Info.TOKENIZATION_FINISH, count=len(self.tokens))
+        pr(M.Debug.TOKENIZATION_FINISH, count=len(self.tokens))
         
         return self.tokens 

@@ -23,7 +23,7 @@ target2:
 """
 
 
-    result = parse_dsl(correct_input, debug=True, lang="ru", color=True)
+    result = parse_dsl(correct_input, debug=False, lang="ru", color=True)
 
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
