@@ -28,7 +28,7 @@ target1:
     [id]        -> |*s1|if (None): ROLLBACK("У ОН нет id!")|  -> []
     [section]   -> |*s1|if (None): *get("нет секции")|        -> [section_name](str)
     [floor]     -> |*s1|                                      -> [floor_of_flat](int)
-    [type]      -> |*s1|if (not in $$normdata.TYPE_OF_FLATS): SKIP("Еще не обрабатываем такой тип") > []
+    [type]      -> |*s1|if (not in $$normdata.TYPE_OF_FLATS): SKIP("Еще не обрабатываем такой тип") | ->  []
     [type]
     [is_studio]
     [rooms]

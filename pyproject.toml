@@ -5,41 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dataroute"
 version = "0.1.0"
-description = "Декларативный язык программирования для построения пайплайнов обработки данных"
+description = "Гибкая ETL-система на Python с собственным DSL для построения маршрутов и трансформаций данных."
+authors = [{name = "Alexander K.", email = "ip387525@gmail.com"}]
 readme = "README.md"
-requires-python = ">=3.6"
-authors = [
-    {name = "DataRoute"}
-]
+requires-python = ">=3.8"
 license = {text = "MIT"}
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
-dependencies = [
-    "requests~=2.32",
-    "lark~=1.2",
-    ""
-]
 
 [project.urls]
-"Homepage" = "https://github.com/1SKcode/dataroute"
-"Bug Tracker" = "https://github.com/1SKcode/dataroute/issues"
+Homepage = "https://github.com/1SKcode/dataroute"
+BugTracker = "https://github.com/1SKcode/dataroute/issues"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/dataroute"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-
-[tool.black]
-line-length = 88
-
-[tool.isort]
-profile = "black" 
+[project.classifiers]
+ProgrammingLanguage = "Python :: 3"
+License = "OSI Approved :: MIT License"
+OperatingSystem = "OS Independent" 

@@ -82,3 +82,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/ 
+
+# cursor
+.cursor/
+.cursorrules/
