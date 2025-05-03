@@ -5,7 +5,7 @@ class Messages:
     """Контейнер для сообщений локализации по категориям"""
     
     class Info:
-        TOKENIZATION_START = {"ru": "Начинаю токенизацию...", "en": "Starting tokenization..."}
+        TOKENIZATION_START = {"ru": ">Y<Начинаю токенизацию...>RS<", "en": ">Y<Starting tokenization...>RS<"}
         TOKENIZATION_FINISH = {"ru": "Токенизация завершена. Создано токенов: {count}", "en": "Tokenization completed. Tokens created: {count}"}
         PARSING_START = {"ru": "Начинаю синтаксический анализ...", "en": "Starting parsing..."}
         PARSING_FINISH = {"ru": "Синтаксический анализ завершен. Создано узлов: {count}", "en": "Parsing completed. Nodes created: {count}"}
@@ -34,12 +34,12 @@ class Messages:
         PIPELINE_EMPTY = {"ru": "Пустой пайплайн обнаружен", "en": "Empty pipeline detected"}
         UNKNOWN = {"ru": "Неизвестная синтаксическая ошибка", "en": "Unknown syntax error"}
         GENERIC = {"ru": "Ошибка при обработке DSL: {message}", "en": "Error processing DSL: {message}"}
-        LINE_PREFIX = {"ru": "Ошибка в строке {line_num}:", "en": "Error in line {line_num}:"}
+        LINE_PREFIX = {"ru": ">R<Ошибка в строке {line_num}:>RS<", "en": ">R<Error in line {line_num}:>RS<"}
 
     class Hint:
         ADD_CLOSING_BAR = {"ru": "Добавьте закрывающую вертикальную черту '|'", "en": "Add closing vertical bar '|'"}
         CHECK_BRACKETS = {"ru": "Проверьте правильность открывающих и закрывающих скобок [field]", "en": "Check if brackets are properly opened and closed [field]"}
-        USE_FLOW_SYMBOL = {"ru": "Используйте один из символов направления: ->, =>, -, >", "en": "Use one of the flow direction symbols: ->, =>, -, >"}
+        USE_FLOW_SYMBOL = {"ru": "Используйте один из символов направления: >GREEN<->, =>, -, >>RESET<", "en": "Use one of the flow direction symbols: >GREEN<->, =>, -, >>RESET<"}
         SPECIFY_TYPE = {"ru": "Укажите тип в круглых скобках: [field](type)", "en": "Specify type in parentheses: [field](type)"}
         SOURCE_SYNTAX = {"ru": "Используйте sourse=type", "en": "Use sourse=type"}
         TARGET_SYNTAX = {"ru": "Используйте target=type(\"value\")", "en": "Use target=type(\"value\")"}

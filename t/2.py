@@ -14,7 +14,7 @@ def run_test(title, dsl_code):
     real_exit = sys.exit
     sys.exit = fake_exit
     try:
-        result = parse_dsl(dsl_code, debug=False, lang="ru")
+        result = parse_dsl(dsl_code, debug=False, lang="ru", color=True)
         print(json.dumps(result, indent=2, ensure_ascii=False))
         return True
     except ExitIntercepted:

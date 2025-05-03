@@ -1,6 +1,24 @@
 from .config import Config
 from .localization import Localization, Messages
 import sys
+import re
+
+ANSI_COLORS = {
+    "RS": "\033[0m",
+    "G": "\033[32m",
+    "R": "\033[31m",
+    "Y": "\033[33m",
+    "BOLD": "\033[1m",
+}
+
+def colorize(text: str) -> str:
+    if not Config.is_color():
+        # Удаляем все >NAME< теги
+        return re.sub(r'>[A-Z]+<', '', text)
+    def repl(match):
+        tag = match.group(0)[1:-1]
+        return ANSI_COLORS.get(tag, '')
+    return re.sub(r'>[A-Z]+<', repl, text)
 
 def pr(msg, *args, **kwargs):
     """
@@ -10,7 +28,7 @@ def pr(msg, *args, **kwargs):
     """
     # Если это не dict (например, строка или DSLSyntaxError), просто печатаем
     if not isinstance(msg, dict):
-        print(msg, *args, file=sys.stdout)
+        print(colorize(str(msg)), *args, file=sys.stdout)
         return
     # Определяем тип сообщения по имени класса Messages
     msg_type = None
@@ -23,6 +41,7 @@ def pr(msg, *args, **kwargs):
         return
     # Получаем строку на нужном языке
     text = Localization(Config.get_lang()).get(msg, **kwargs)
+    text = colorize(text)
     print(text, *args, file=sys.stdout)
 
 # В будущем: notify, log, warn, error и т.д. 
