@@ -25,7 +25,7 @@ class Messages:
     class Error:
         PIPELINE_CLOSING_BAR = {"ru": "Закрывающая прямая черта пайплайна не найдена", "en": "Pipeline closing bar is missing"}
         BRACKET_MISSING = {"ru": "Квадратная скобка определения сущности не найдена", "en": "Entity definition bracket is missing"}
-        FLOW_DIRECTION = {"ru": "Символ направляющего потока не найден. Используйте ->, =>, -, >", "en": "Flow direction symbol is missing. Use ->, =>, -, >"}
+        FLOW_DIRECTION = {"ru": "Символ направляющего потока не найден. Используйте ->, =>, - или >", "en": "Flow direction symbol is missing. Use ->, =>, - or >"}
         FINAL_TYPE = {"ru": "Финальный тип не задан или задан некорректно", "en": "Final type is not specified or incorrectly specified"}
         SYNTAX_SOURCE = {"ru": "Неверный синтаксис определения источника", "en": "Invalid source definition syntax"}
         SYNTAX_TARGET = {"ru": "Неверный синтаксис определения цели", "en": "Invalid target definition syntax"}

@@ -10,12 +10,16 @@ authors = [{name = "Alexander K.", email = "ip387525@gmail.com"}]
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
 
 [project.urls]
 Homepage = "https://github.com/1SKcode/dataroute"
 BugTracker = "https://github.com/1SKcode/dataroute/issues"
 
-[project.classifiers]
-ProgrammingLanguage = "Python :: 3"
-License = "OSI Approved :: MIT License"
-OperatingSystem = "OS Independent" 
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["dataroute", "dtrt_lang", "generator"] 
