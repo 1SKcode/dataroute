@@ -1,0 +1,7 @@
+{
+  "name": "TestApp",
+  "settings": {
+    "maxItems": 100,
+    "debug": true
+  }
+} 

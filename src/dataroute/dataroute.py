@@ -1,103 +1,173 @@
-import json
-import sys
-import traceback
+"""
+dataroute - Гибкая ETL-система на Python с DSL для построения маршрутов и трансформаций данных
+"""
+
 from typing import Dict, Any, Optional
 
-from .lexer import Lexer
-from .parser import Parser
-from .json_generator import JSONGenerator
-from .errors import DSLSyntaxError
-from .localization import Messages as M
-from .config import Config
-from .mess_core import pr
+from ._impl import Engine
 
 
-
-
-class DataRouteParser:
-    """Класс для парсинга и интерпретации DSL"""
+class DataRoute:
+    """
+    Основной класс для работы с DSL DataRoute.
     
-    def __init__(self, debug=False, lang="ru", color=True):
-        Config.set(lang=lang, debug=debug, color=color)
-        self.lexer = Lexer()
-        self.parser = Parser()
-        self.json_generator = JSONGenerator()
+    Примеры использования:
     
-    def parse(self, text: str) -> Dict[str, Any]:
-        """Обрабатывает DSL и возвращает структуру JSON"""
-        pr(M.Info.PROCESSING_START)
+    # Из файла
+    dtrt = DataRoute("file.dtrt")
+    result = dtrt.go()
+    dtrt.print_json()  # Вывод в консоль
+    dtrt.to_json("result.json")  # Сохранение в файл
+    
+    # Из строки
+    code = 'source = data | [field] -> [other] |'
+    dtrt = DataRoute(code, is_file=False)
+    result = dtrt.go()
+    """
+    
+    def __init__(
+        self, 
+        source: str, 
+        vars_folder: str = None,
+        debug: bool = False, 
+        lang: str = "en", 
+        color: bool = False
+    ):
+        """
+        Создает новый экземпляр для обработки DSL
         
-        try:
-            # Этап 1: Лексический анализ
-            tokens = self.lexer.tokenize(text)
-            
-            # Этап 2: Синтаксический анализ
-            ast = self.parser.parse(tokens)
-            
-            # Этап 3: Обход AST и генерация JSON
-            result = ast.accept(self.json_generator)
-            
-            pr(M.Info.PROCESSING_FINISH)
-            
-            return result
-            
-        except DSLSyntaxError as e:
-            # Выводим ошибку в красивом формате
-            pr(str(e))
-            sys.exit(1)
-        except Exception as e:
-            # Для других ошибок выводим стандартное сообщение
-            pr(M.Error.GENERIC, message=str(e))
-            if Config.is_debug():
-                traceback.print_exc()
-            sys.exit(1)
-
-
-def parse_dsl(text: str, debug: bool = False, lang: str = "ru", color: bool = True) -> Dict[str, Any]:
-    """Парсинг DSL-текста в JSON-структуру"""
-    parser = DataRouteParser(debug, lang, color)
-    return parser.parse(text)
-
-
-def parse_dsl_file(filename: str, debug: bool = False, lang: str = "ru", color: bool = True) -> Dict[str, Any]:
-    """Функция для парсинга DSL-файла в JSON-структуру"""
-    with open(filename, 'r', encoding='utf-8') as f:
-        text = f.read()
-    return parse_dsl(text, debug, lang, color)
-
-
-def parse_dsl_to_json(text: str, output_file: Optional[str] = None, 
-                      indent: int = 2, debug: bool = False, lang: str = "ru", color: bool = True) -> None:
-    """Парсит DSL-текст и сохраняет результат в JSON-файл или выводит в stdout"""
-    result = parse_dsl(text, debug, lang, color)
-    json_str = json.dumps(result, indent=indent, ensure_ascii=False)
+        Args:
+            source: Путь к файлу или строка с кодом DSL.
+                   Тип определяется автоматически:
+                   - Файлы с расширением .txt, .dtrt
+                   - Строки, содержащие синтаксис DSL (например '->')
+            vars_folder: Путь к папке с внешними JSON переменными
+            debug: Включить режим отладки с дополнительными сообщениями
+            lang: Язык сообщений ('ru' или 'en')
+            color: Использовать цветной вывод
+        """
+        self._engine = Engine(source, debug, lang, color, vars_folder)
     
-    if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(json_str)
-    else:
-        pr(json_str)
-
-
-def parse_dsl_file_to_json(input_file: str, output_file: Optional[str] = None, 
-                           indent: int = 2, debug: bool = False, lang: str = "ru", color: bool = True) -> None:
-    """Парсит DSL-файл и сохраняет результат в JSON-файл или выводит в stdout"""
-    with open(input_file, 'r', encoding='utf-8') as f:
-        text = f.read()
-    parse_dsl_to_json(text, output_file, indent, debug, lang, color)
+    def go(self) -> Dict[str, Any]:
+        """
+        Запускает обработку DSL и возвращает результат
+        
+        Returns:
+            Dict[str, Any]: Структура данных, представляющая обработанный DSL
+        """
+        return self._engine.go()
+    
+    def set_lang(self, lang: str) -> "DataRoute":
+        """
+        Меняет язык вывода сообщений
+        
+        Args:
+            lang: Код языка ('ru' или 'en')
+            
+        Returns:
+            DataRoute: Текущий экземпляр для цепочки вызовов
+        """
+        self._engine.set_lang(lang)
+        return self
+    
+    def set_debug(self, debug: bool) -> "DataRoute":
+        """
+        Включает или выключает отладочный режим
+        
+        Args:
+            debug: True для включения, False для выключения
+            
+        Returns:
+            DataRoute: Текущий экземпляр для цепочки вызовов
+        """
+        self._engine.set_debug(debug)
+        return self
+    
+    def set_color(self, color: bool) -> "DataRoute":
+        """
+        Включает или выключает цветной вывод
+        
+        Args:
+            color: True для включения, False для выключения
+            
+        Returns:
+            DataRoute: Текущий экземпляр для цепочки вызовов
+        """
+        self._engine.set_color(color)
+        return self
+    
+    def to_json(self, output_file: Optional[str] = None, indent: int = 2) -> Optional[str]:
+        """
+        Преобразует результат в JSON и опционально сохраняет в файл
+        
+        Args:
+            output_file: Путь к файлу для сохранения JSON. Если None,
+                         возвращает JSON-строку
+            indent: Отступ для форматирования JSON
+            
+        Returns:
+            Optional[str]: JSON-строка, если output_file=None
+        """
+        return self._engine.to_json(output_file, indent)
+    
+    def print_json(self, indent: int = 2) -> None:
+        """
+        Выводит результат в формате JSON в stdout
+        
+        Args:
+            indent: Отступ для форматирования JSON
+        """
+        self._engine.print_json(indent)
+    
+    @property
+    def result(self) -> Optional[Dict[str, Any]]:
+        """
+        Результат последнего разбора
+        
+        Returns:
+            Optional[Dict[str, Any]]: Структура данных или None, если разбор еще не выполнен
+        """
+        return self._engine.result
+    
+    @property
+    def source(self) -> str:
+        """
+        Исходный код или путь к файлу
+        
+        Returns:
+            str: Путь к файлу или строка с DSL
+        """
+        return self._engine.source
+    
+    @property
+    def is_file(self) -> bool:
+        """
+        Признак использования файла как источника
+        
+        Returns:
+            bool: True, если источник - файл, иначе False
+        """
+        return self._engine.is_file
 
 
 if __name__ == "__main__":
     import argparse
+    import sys
     
     parser = argparse.ArgumentParser(description="Парсер DSL для Data Route")
     parser.add_argument('input', help='Входной DSL-файл')
     parser.add_argument('-o', '--output', help='Выходной JSON-файл')
     parser.add_argument('-d', '--debug', action='store_true', help='Режим отладки')
-    parser.add_argument('-l', '--lang', choices=['ru', 'en'], default='ru', help='Язык сообщений')
+    parser.add_argument('-l', '--lang', choices=['ru', 'en'], default='en', help='Язык сообщений')
     parser.add_argument('-i', '--indent', type=int, default=2, help='Отступ в JSON')
     parser.add_argument('--no-color', action='store_true', help='Отключить цветной вывод')
+    parser.add_argument('-v', '--vars', help='Путь к папке с внешними переменными (JSON)')
     
     args = parser.parse_args()
     
-    parse_dsl_file_to_json(args.input, args.output, args.indent, args.debug, args.lang, not args.no_color) 
+    dtrt = DataRoute(args.input, vars_folder=args.vars, debug=args.debug, lang=args.lang, color=not args.no_color)
+    
+    if args.output:
+        dtrt.to_json(args.output, args.indent)
+    else:
+        dtrt.print_json(args.indent)

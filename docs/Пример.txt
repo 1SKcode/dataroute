@@ -3,25 +3,7 @@ source = dict   #etl_routes()
 
 target1=parser/norm_data.norm_flats
 target2=parser/fids_raw_data.flats
-
-
 target3=source
-def gen_uuid_for_data(data):
-    data["uuid"] = str(uuid.uuid4())
-    return data
-
-
-
-
-<!-- 
-target3:
-    [] -> |*gen_uuid| -> [uuid](UUID)
-
-target2:
-    [id]      -> [id]()
-    [section] -> [section]()
-
-
 
 target1:
     [] -> |*gen_uuid| -> [uuid](UUID)
@@ -56,50 +38,30 @@ target1:
     [status_active]
     [is_euro] -> |*s1|*lower|if (in $$normdata.EURO_LIST): *get(True) else (*get(False))| -> [is_euro](bool)
 
-    #  timestamp вынесется на SET DEFAULT (NOW() + INTERVAL '3 minutes')::timestamp;
-    #  online вынесется на SET DEFAULT true
-    #  status  вынесется на SET DEFAULT 'Свободна'
+# СИНТАКСИС:
 
+[+] source = {str}   - тип источника откуда идут данные (сейчас доступен только dict, в будущем list и чтение напрямую из БД)
+[+] target{int}      - конечные точки куда будут записываться данные. Для каждого тaргета определяется своя route_map
+[+] route_map        - область определения карты маршрута. Начинается с `target{int}:`.
+[+] [name] ->        - чтение индекса из source
+[+] [] ->            - вместо чтения из source взять None 
+[+] -> [name](type)  - запись в target и пердвартиельныфй каст в указанный тип (при ошибке вызывается ROLLBACK(str))
+[+] -> []            - не записывать
+[+] -> [$name](type) - записать в локальную переменную 
+[+] |||||            - Последовательная обработка - transform_route
+[+] *f_name          - вызов ф-ии (автоматически передается аргумент)
+[ ] *f_name()        - вызов ф-ии с аргументами (в дополнение к первому)
+[ ] $                - обращение к локальной переменной source ([name] >) внутри карты маршрута
+[ ] $this            - обращение к самому себе (на своем route)
+[ ] $$               - обращение к глобальным константам из папки variables (обращение к переменным через точку)
+[ ] IF(exp): ... ELSE: ...  - Условная конструкция. Чтобы обратиться к текущей переменной используйте $this. К локальной: $name. К глобальной $$name.name (точечная нотация пол коллекции)
+[ ] IF (None): (ELSE) - Если None, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+[ ] IF (in $var) (ELSE)     - Если есть вхождение, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+[ ] IF (not in $var) (ELSE) - Если нет вхождения, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
+[ ] ROLLBACK(str)    - Событие: отмена всего процесса от начала до конца + NOTIFY(сообщение почему так вышло)
+[ ] SKIP(str)        - Событие: пропускаем одну запись, записываем в счетчик + NOTIFY(сообщение почему так вышло)
+[ ] NOTIFY(str)      - Событие: отправляем в стек уведомления
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//
-source = {str}  - тип источника откуда идут данные (сейчас доступен только dict, в будущем list и чтение напрямую из БД)
-target{int}     - конечные точки куда будут записываться данные. Для каждого тaргета определяется своя route_map
-route_map       - область определения карты маршрута. Начинается с `target{int}:`.
-[name] ->       - чтение индекса из source
-[] ->           - вместо чтения из source взять None 
--> [name](type) - запись в target и пердвартиельныфй каст в указанный тип (при ошибке вызывается ROLLBACK(str))
--> []           - не записывать
-|||||           - Последовательная обработка - transform_route
-*               - вызов ф-ии (автоматически передается аргумент)
-*()             - вызов ф-ии с аргументами (в дополнение к первому)
-$               - обращение к локальной переменной source ([name] >) внутри карты маршрута
-$this           - обращение к самому себе (на своем route)
-$$              - обращение к глобальным константам из папки variables (обращение к переменным через точку)
-if (exp) : (else) - Условное выражение. Чтобы обратиться к текущей переменной используйте this
-if (None): (else) - Если None, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
-if (in $var) (else)     - Если есть вхождение, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
-if (not in $var) (else) - Если нет вхождения, то выполнить ф-ию или вызвать событие (опт. иначе выполнить ф-ию или вызвать событие)
-ROLLBACK(str)   - Событие: отмена всего процесса от начала до конца + NOTIFY(сообщение почему так вышло)
-SKIP(str)       - Событие: пропускаем одну запись, записываем в счетчик + NOTIFY(сообщение почему так вышло)
-NOTIFY(str)     - Событие: отправляем в стек уведомления
 
 
 ----ROUTE MAP----
@@ -110,55 +72,506 @@ point:
 
 
 
-ПАРСИНГ:
-    |*s1|if (None): ROLLBACK("У ОН нет id!")| -> 
-        type: функция
-        python_callable: s1(raw_record) -> 
+ВХОДНАЯ СТРОКА:
+"""
+sourse=dict
 
-        type: условие
-        action: вызвать ф-ию _if() с аргументом None
-        если true: event_arg = ROLLBACK() с аргументом("У ОН нет id!")
-        если false: идем дальше
+target2=postgres("parser.norm_data")
+target1=dict("target_new")
 
-СЛОВАРЬ ПОСЛЕ ПАРСИНГА
-core_parse = {
-    "open_dict" = {} --  сюда можно записывать по мере выполнения, все остальное только на этап компиляции стека
-    "type" = str --?
-    "source" = str, -- откуда берутся индексы
-    "target" = {}, -- куда записывается (схема)
-    "metadata" = {} -- информация с этапа компиляции
-    "routes" = {
-        "open_dict" = {}
-        "type" = str --?
-        "metadata" = {} 
-        "index_name" = str --имя маршрута [name] ->
-        "void_call" = bool -- если маршрут определн как [] ->
-        "raw_record" = T
-        "stack" = [ -- выполнение слева направо |||||
-            call = {
-                "open_dict" = { -- заполняется по мере выполнения стека
-                    rollback_now = {}
-                    skip_it = {}
-                    notify = {}
-                }
-                "type" = str --функция, условие, вхождение, отсутствие вхождения, пустой 
-                "metadata" = {}
-                "choise" = bool
-                "action" - что делать этому вызову в итоге
-                "python_callable" = python_callable
-                "lical_var" = T
-                "lical_var_metadata"
-                "global_var" = T
-                "global_var_metadata" = {},
-                "event" = str
-                "event_arg" = str
-                
-            }
-        ]
+target1:
+    [id] -> [external_id](str)
+    [name] => |*lower|*upper|*func1|*func2| - [low_name](str)
+    [age] - |*check_age| -> [](none)
+    [test1] -> [test_NORM](str)
+
+target2:
+    [id] -> |id| -> [id](str)
+    [name] -> |*s1|*upper| -> [name](str)
+    [] -> |*gen_rand_int| -> [score](int)
+    [] -> |*gen_rand_int| -> [score2](int)
+"""
+
+СЛОВАРЬ ПОСЛЕ ПАРСИНГА:
+{
+  "target_new": {
+    "sourse_type": "dict",
+    "target_type": "dict",
+    "routes": {
+      "id": {
+        "pipeline": null,
+        "final_type": "str",
+        "final_name": "external_id"
+      },
+      "name": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*lower"
+          },
+          "2": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*upper"
+          },
+          "3": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func1"
+          },
+          "4": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func2"
+          }
+        },
+        "final_type": "str",
+        "final_name": "low_name"
+      },
+      "age": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*check_age"
+          }
+        },
+        "final_type": "none",
+        "final_name": "3"
+      },
+      "test1": {
+        "pipeline": null,
+        "final_type": "str",
+        "final_name": "test_NORM"
+      }
     }
+  },
+  "parser.norm_data": {
+    "sourse_type": "dict",
+    "target_type": "postgres",
+    "routes": {
+      "id": {
+        "pipeline": {
+          "1": {
+            "type": "direct",
+            "param": "$this",
+            "full_str": "id"
+          }
+        },
+        "final_type": "str",
+        "final_name": "id"
+      },
+      "name": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*s1"
+          },
+          "2": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*upper"
+          }
+        },
+        "final_type": "str",
+        "final_name": "name"
+      },
+      "__void1": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*gen_rand_int"
+          }
+        },
+        "final_type": "int",
+        "final_name": "score"
+      },
+      "__void2": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*gen_rand_int"
+          }
+        },
+        "final_type": "int",
+        "final_name": "score2"
+      }
+    }
+  }
 }
 
 
-
-
 ```
+
+УСЛОВНЫЕ КОНСТРУКЦИИ:
+
+"pipeline": {
+    "1": {
+    "type": "cond_stmt",
+    "sub_type": "if_else",
+    "if": {
+        "exp": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*get_random_true_or_false"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func1"
+        }
+    },
+    "else": {
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func2"
+        }
+    }
+    "full_str": "IF(*get_random_true_or_false): *func1 ELSE: *func2"
+},
+
+
+"pipeline": {
+    "1": {
+    "type": "cond_stmt",
+    "sub_type": "if_else",
+    "if": {
+        "exp": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*get_random_true_or_false"
+        },
+        "do": {
+            "type": "event",
+            "sub_type": "SKIP"
+            "param": "Пропущен, потому что получили true",
+            "full_str": "SKIP("Пропущен, потому что получили true")"
+        }
+    },
+    "else": {
+        "do": {
+            "type": "event",
+            "sub_type": "ROLLBACK"
+            "param": "Роллбэк, т.к получили false",
+            "full_str": "ROLLBACK("Роллбэк, т.к получили false")"
+        }
+    }
+    "full_str": "IF(*get_random_true_or_false): SKIP("Пропущен, потому что получили true") ELSE: ROLLBACK("Роллбэк, т.к получили false")"
+},
+(У ELSE НИКОГДА НЕ БУДЕТ exp)
+
+
+
+"pipeline": {
+    "1": {
+    "type": "cond_stmt",
+    "sub_type": "if_else",
+    "if": {
+        "exp": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*get_random_true_or_false"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func1"
+        }
+    },
+    "else": {
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func2"
+        }
+    }
+    "full_str": "IF(*get_random_true_or_false): *func1 ELSE: *func2"
+},
+
+
+"pipeline": {
+    "1": {
+    "type": "cond_stmt",
+    "sub_type": "if_else",
+    "if": {
+        "exp": {
+            "type": "cond_exp",
+            "full_str": "$this > 100"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func1"
+        }
+    },
+    "else": {
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*func2"
+        }
+    }
+    "full_str": "IF($this > 100): *func1 ELSE: *func2"
+},
+(У ELSE НИКОГДА НЕ БУДЕТ exp)
+
+
+"pipeline": {
+    "1": {
+    "type": "cond_stmt",
+    "sub_type": "if_elifs_else",
+    "if": {
+        "exp": {
+            "type": "cond_exp",
+            "full_str": "$age > 70"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*funk1"
+        }
+    },
+     "elif_1": {
+        "exp": {
+            "type": "cond_exp",
+            "full_str": "$age < 20"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$age",
+            "full_str": "*funk2"
+        }
+    },
+     "elif_2": {
+        "exp": {
+            "type": "cond_exp",
+            "full_str": "$this IN $$consts.ages"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*funk3"
+        }
+    },
+     "elif_3": {
+        "exp": {
+            "type": "cond_exp",
+            "full_str": "$this == 100"
+        },
+        "do": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*funk4 "
+        }
+    },
+    "else": {
+        "do": {
+            "type": "event",
+            "sub_type": "ROLLBACK"
+            "param": "$this не обрабатываем",
+            "full_str": "ROLLBACK("$this не обрабатываем")"
+        }
+    }
+    "full_str": "|IF($age^ > 70): *funk1 ELIF($age < 20): *funk2($^age) ELIF($this IN $$consts.ages): *func3 ELIF($this == 100): *funk4 ELSE: ROLLBACK("$this не обрабатываем")"
+},
+Тут обращаем вниманеи на то, что elif инкрементируется 
+Так же, что есть обращение к системным константам через $$
+Так же, что в тектс события можно передавать $this или другие переменные: $this, $$, $name
+
+
+ОБРАБОТКИ ОШИБОК ДЛЯ СИНТАКИСЧЕСКОГО АНАЛИЗА:
+A. Конструкция IF(exp): ... ELSE: ...
+1. |ELSE: *func2| 
+ERROR: В выражении может быть только if, но не может быть else без if. 
+HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
+
+2. |IF: *func2 ELSE: *func1| 
+ИЛИ:
+|IF *func1 ELSE |  
+ИЛИ:
+|IF 1>10: *func1 ELSE: *func2|
+ERROR: условная конструкция должна содержать знак скобок
+HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
+
+3. |IF (): *func1 ELSE: *func2|
+ERROR: не найдено логическое выражение внутри условной конструкции
+HINT: добавьте логическое выражение внутрь условной конструкции IF(услвие). используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
+
+4.|IF (1>10) *func1 ELSE: *func2|
+ИЛИ
+|IF (1>10): *func1 ELSE *func2|
+ERROR: не найден знак завершения условного выражения (:)
+HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
+
+B. Конструкция IF(exp): ... ELIF(exp): ... ELSE: ...
+1. Те же типы ошибок что и для A.
+
+
+C. Использование несуществующей переменной типа $
+Пояснение: в коде мы можем обращаться к переменной, которую определили
+ВАЖНО: ЕСЛИ ТЫ ЧТО-ТО МОЖЕШЬ ДОБАВИТЬ - ОБЯЗАТЕЛЬНО ДОБАВЛЯЙ! ОБЯЗАТЕЛЬНО
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+=================
+Отлично, теперь давай добавим ф-нал
+Как видишь, сейчас в пайплайнах у меня просто передаются this параметр, что означает буквально: возьми текущую переменную
+    [name] -> |*normalize_name| -> [Norm_name](str)
+
+Т.к тут нет операторных скобок, то по умолчанию компилятор понимает, что сейчас контекст — это локальная переменна this. 
+Это можно увидеть на этапе финальной компиляции:
+pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$this",
+            "full_str": "*normalize_name"
+ЭТО БЫЛ ПЕРВЫЙ ТИП ПЕРЕМЕННОЙ
+Кстати можно еще писать напрямую:
+    [name] -> |*normalize_name($this)| -> [Norm_name](str) - это будет то же самое
+
+Что теперь нужно ввести в ф-нал:
+
+    [name] -> |*normalize_name($age)| -> [Norm_name](str)
+
+"name": {
+        "pipeline": {
+          "1": {
+            "type": "py_func",
+            "param": "$age",
+            "full_str": "*normalize_name($age)"
+          }
+        },
+        "final_type": "str",
+        "final_name": "Norm_name"
+      }
+Обрати внимание на "param" - он просто взял всю строку между скобочек
+
+Как видишь, я подвел тебя к еще одной новой и важной концепции: работа с переменными
+Сейсчас расскажу какие будут типы:
+0. Переменная сам на себя ($this)
+1. Локальная перменная - $name
+Область видимости - облать route map (т.е вложенность в
+
+Т.е это грубо говоря как обычные локальные переменные в ЯП.
+Валидация и возможные варианты на уровне обработки синтаксиса:
+А. Свободное объявление вне пайплайнов:
+'''начало кода dtrt
+source=dict
+target1=postgres/norm
+target2=postgres/norm2
+
+#можем объявить тут ряд переменных:
+$myVar1 = "a-zA-zа-яА-Я0-9"
+$myVar2 = 900
+$myVar3 = 12.3
+$myVar4 = True
+#должен выкидывать ошибку при анализе:
+$myVar4 = False
+#Ошибка: переменная была объявлена ранее
+Возможное решение: инициализация переменных осуществляется в уникальные переменные
+
+#далее можем их использовать в пайплайнах:
+target1:
+    [] -> |*gen_uuid($myVar4)| -> [uuid](UUID)
+    [age] -> |*check_age($ myVar3)| ->  [$normAge](int) #так можно, создастся новая переменная $norm_age (уже реализовано)
+    [] -> |*check Age($norm_age)| -> [$ageCorrect](bool) #видим, что используем переменную, которая недавно была создана, это корректно 
+    [score] -> |*check_score($score)| -> [NormScore](float) #а вот тут будет ошибка, т.к $score ранее не был объявлен, а он используется внутри пайплайна (и не создаётся через -> [$score])
+Так что нужно вот такое добавить в анализатор, поиск всех переменных, построение мапы, подведение итогов, выброс ошибок
+
+В финальном json это будет отдельный словарь: global_vars:
+{
+ "myVar1": {type: str, val: "a-zA-Zа-яА-Я0-9"}
+"myVar2": {type: int, val: 900}
+...
+}
+Далее идет часть с пайплайнами...
+
+Б. Создание переменных как результат выполнения пайплайна:
+[А]->|*func|->[$B](str)
+Как видим, результат - создание переменной $B
+там будет:
+"final_type": "str"
+final_name: "$B"
+(Это уже работает)
+Тут важно выбрасывать ошибку анализатора, если мы хотим создать переменную, которая уже используется в пайплайне (однако на глобальные это не будет ругаться) они просто будут перезаписываться :
+...код:
+[string] -> |*get_rand_str| -> [$myVar1](str)
+...финальный json:
+было:
+global_vars:
+ "myVar1": {type: str, val: "a-zA-Zа-яА-Я0-9"}
+Стало:
+ "myVar1": {type: str, val: $string}
+
+В. Обращение к пре-переменной или пост-переменной.
+Я могу обращаться вот так:
+[name] -> |*norm_name| -> [name]
+[score] ->|*check_score($name)|->[](int)
+Тут по умолчанию возьмется name, который уже нормализован(т.е из правой части), а что если нам нужно взять сырой name?
+Для этого есть синтаксис ^
+[score] ->|*check_score($^name)|->[](int)
+
+Теперь считается, что нам нужно брать значение $^name (нужно убедиться, что это попадает в param верно)
+
+ПОСЛЕДНИЙ НОВЫЙ ТИП ПЕРЕМЕННОЙ:
+Обращение к глобальным переменным ($$)
+При создании экземпляра dataroute мы будем так же передавать расположение папки с пользовательскими переменными
+    dtrt = DataRoute(correct_input1, vars_folder, debug=False, lang="ru", color=True)
+
+В этой папке будут json файлы (в будущем настрою еще поддержку yaml)
+
+В эту папку можно обращаться через точечную нотацию:
+$$имя_файла.элемент_в_файле
+
+Например мы указали путь к папке
+В ней есть 2 json файла
+vars1.json:
+"names": [
+ "саша",
+ "маша"
+]
+vars2.json:
+"nestedExample": {
+    "level1": {
+      "level2": {
+        "level3": {
+          "value": "Deep nesting example"
+        }
+      }
+    }
+  }
+Обращаемся:
+[A] -> |*func($$vars1.names)| -> [B1](str)
+[A1] -> |*func($$vars2.nestedExample.level1.level2.level3.value)| -> [B2](str)
+
+Тут тоже как и везде нужно сделать анализацию:
+1. $$ не могут быть финальным результатом пайпалайна
+2. При указании папки она не была найдена
+3. При указании файла в папке файл не был найден
+4. При указании через точечную нотацию произошла ошибка
+
+Итак, я предлагаю внедрять по одной из этих фичей и в конце тестировать каждую, а я буду поправлять! 

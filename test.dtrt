@@ -1,0 +1,6 @@
+sourse=dict
+
+target1=dict("test")
+
+target1:
+    [field] -> [field](str)

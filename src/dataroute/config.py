@@ -1,6 +1,6 @@
 class Config:
     """Глобальный конфиг для языка и режима отладки"""
-    lang = "ru"
+    lang = "en"
     debug = False
     color = True
 

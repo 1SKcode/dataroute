@@ -78,6 +78,52 @@ class Lexer:
                     pr(M.Debug.TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info)
                     matched = True
             
+            # Глобальная переменная ($myVar = "value")
+            if not matched:
+                match = re.match(PATTERNS[TokenType.GLOBAL_VAR], line)
+                if match:
+                    var_name = match.group(1)
+                    var_value = match.group(2).strip()
+                    
+                    # Определяем тип значения
+                    var_type = "str"  # По умолчанию
+                    
+                    # Проверяем кавычки для строк
+                    if (var_value.startswith('"') and var_value.endswith('"')) or \
+                       (var_value.startswith("'") and var_value.endswith("'")):
+                        var_value = self._strip_quotes(var_value)
+                    # Проверяем целое число
+                    elif var_value.isdigit():
+                        var_type = "int"
+                        var_value = int(var_value)
+                    # Проверяем число с плавающей точкой
+                    elif re.match(r'^-?\d+\.\d+$', var_value):
+                        var_type = "float"
+                        var_value = float(var_value)
+                    # Проверяем булево значение
+                    elif var_value.lower() in ("true", "false"):
+                        var_type = "bool"
+                        var_value = var_value.lower() == "true"
+                    
+                    var_info = {
+                        'name': var_name,
+                        'value': var_value,
+                        'type': var_type
+                    }
+                    
+                    self.tokens.append(Token(TokenType.GLOBAL_VAR, var_info, line_num))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.GLOBAL_VAR.name, value=var_info)
+                    matched = True
+            
+            # Комментарий (# ...)
+            if not matched:
+                match = re.match(PATTERNS[TokenType.COMMENT], line)
+                if match:
+                    # Обрабатываем комментарий, но не создаем токен
+                    # Комментарии игнорируются в процессе токенизации
+                    pr(M.Debug.COMMENT_IGNORED, comment=match.group(1).strip())
+                    matched = True
+            
             # Заголовок маршрута (target1:)
             if not matched:
                 match = re.match(PATTERNS[TokenType.ROUTE_HEADER], line)
@@ -87,19 +133,18 @@ class Lexer:
                     matched = True
             
             # Строка маршрута с отступом
-            if not matched:
-                match = re.match(PATTERNS[TokenType.ROUTE_LINE], original_line)
-                if match:
-                    route_info = {
-                        'src_field': match.group(1),
-                        'pipeline': match.group(2),
-                        'target_field': match.group(3),
-                        'target_field_type': match.group(4)
-                    }
-                    
-                    self.tokens.append(Token(TokenType.ROUTE_LINE, route_info, line_num))
-                    pr(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info)
-                    matched = True
+            match = re.match(PATTERNS[TokenType.ROUTE_LINE], original_line)
+            if match:
+                route_info = {
+                    'src_field': match.group(1),
+                    'pipeline': match.group(2),
+                    'target_field': match.group(3),
+                    'target_field_type': match.group(4),
+                    'line': original_line
+                }
+                self.tokens.append(Token(TokenType.ROUTE_LINE, route_info, line_num))
+                pr(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info)
+                matched = True
             
             if not matched:
                 error = self.error_handler.analyze(line, line_num)

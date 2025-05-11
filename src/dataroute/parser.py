@@ -1,79 +1,113 @@
 import sys
-from typing import List, Dict
+import re
+from typing import List, Dict, Optional, Any
 
 from .ast_nodes import (
     ASTNode, ProgramNode, SourceNode, TargetNode, RouteBlockNode,
-    FieldSrcNode, PipelineNode, FieldDstNode, RouteLineNode, PipelineItemNode
+    FieldSrcNode, PipelineNode, FieldDstNode, RouteLineNode, PipelineItemNode, GlobalVarNode
 )
-from .constants import ErrorType, PipelineItemType
-from .errors import DSLSyntaxError, SyntaxErrorHandler
-from .lexer import Token
+from .constants import ErrorType, PipelineItemType, TokenType
+from .errors import DSLSyntaxError, FinalTypeError, VoidTypeError
 from .localization import Localization, Messages as M
-from .config import Config
 from .mess_core import pr
+from .config import Config
 
 
 class Parser:
-    """Синтаксический анализатор для построения AST из токенов"""
+    """Синтаксический анализатор для создания AST из токенов"""
     
     def __init__(self):
+        """Инициализация парсера"""
         self.tokens = []
         self.position = 0
         self.targets = {}
-        self.error_handler = SyntaxErrorHandler()
         self.loc = Localization(Config.get_lang())
     
-    def parse(self, tokens: List[Token]) -> ProgramNode:
-        """Создает AST из токенов"""
-        self.tokens = tokens
+    def parse(self, tokens=None):
+        """Запускает процесс парсинга"""
+        if tokens is not None:
+            self.tokens = tokens
+        
         self.position = 0
-        program = ProgramNode()
+        self.ast = ProgramNode()
+        
+        # Хранилище для глобальных переменных, чтобы проверять дубликаты
+        self._global_vars = {}
+        
         pr(M.Debug.PARSING_START)
         
-        # Проверка на наличие хотя бы одного определения источника
-        source_found = False
-        for token in tokens:
-            if token.type == TokenType.SOURCE:
-                source_found = True
-                break
-        
-        if not source_found:
-            error_line = "sourse= (missing)"
-            raise DSLSyntaxError(ErrorType.SYNTAX_SOURCE, error_line, 0, 0, None)
-        
+        # Проходим по токенам
         while self.position < len(self.tokens):
             token = self.tokens[self.position]
+            
             if token.type == TokenType.SOURCE:
-                program.children.append(self._parse_source())
+                self.ast.children.append(SourceNode(token.value))
+                self.position += 1
             elif token.type == TokenType.TARGET:
-                target_node = self._parse_target()
-                self.targets[target_node.name] = target_node
-                program.children.append(target_node)
+                target_node = TargetNode(
+                    token.value['name'],
+                    token.value['type'],
+                    token.value['value']
+                )
+                self.ast.children.append(target_node)
+                # Сохраняем информацию о нашем таргете для упрощения доступа
+                if not hasattr(self.ast, '_targets'):
+                    self.ast._targets = {}
+                self.ast._targets[token.value['name']] = target_node
+                self.position += 1
+            elif token.type == TokenType.GLOBAL_VAR:
+                var_info = token.value
+                var_name = var_info['name']
+                
+                # Проверка на дублирование имени переменной
+                if var_name in self._global_vars:
+                    # Выводим сообщение об ошибке и завершаем программу
+                    pr(self.loc.get(M.Error.DUPLICATE_VAR, var_name=var_name), "red")
+                    # Добавляем подсказку
+                    pr(self.loc.get(M.Hint.LABEL) + " " + 
+                       self.loc.get(M.Hint.DUPLICATE_VAR, first_pos=str(self._global_vars[var_name].position)))
+                    sys.exit(1)
+                
+                # Сохраняем переменную и создаем узел AST
+                self._global_vars[var_name] = token
+                
+                var_node = GlobalVarNode(
+                    name=var_name,
+                    value=var_info['value'],
+                    value_type=var_info['type']
+                )
+                self.ast.children.append(var_node)
+                
+                # Сохраняем глобальные переменные в AST для доступа из других компонентов
+                if not hasattr(self.ast, '_global_vars'):
+                    self.ast._global_vars = {}
+                self.ast._global_vars[var_name] = var_node
+                
+                self.position += 1
             elif token.type == TokenType.ROUTE_HEADER:
-                route_block = self._parse_route_block()
+                target_name = token.value
+                self.position += 1
                 
-                # Проверка наличия определения цели для маршрута
-                if route_block.target_name not in self.targets:
-                    error_line = f"{route_block.target_name}:"
-                    hint = self.loc.get(M.Hint.TARGET_DEFINITION_MISSING, target=route_block.target_name)
-                    raise DSLSyntaxError(ErrorType.SEMANTIC_TARGET, error_line, token.position, 0, hint)
+                # Проверяем, что существует целевой объект для этого маршрута
+                if not hasattr(self.ast, '_targets') or target_name not in self.ast._targets:
+                    self._error(f"Целевой объект '{target_name}' не определен")
                 
-                program.children.append(route_block)
+                # Получаем все маршруты для этой цели
+                routes = []
+                while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
+                    route_line_token = self.tokens[self.position]
+                    routes.append(self._parse_route_line(route_line_token))
+                    self.position += 1
+                
+                # Создаем блок маршрутов и добавляем в AST
+                route_block = RouteBlockNode(target_name, routes)
+                self.ast.children.append(route_block)
             else:
+                # Пропускаем неизвестные токены
                 self.position += 1
         
-        # Сохраняем targets в program для дальнейшего использования
-        program._targets = self.targets
-        
-        # Проверка на наличие хотя бы одного определения маршрута
-        route_blocks = [node for node in program.children if node.node_type == NodeType.ROUTE_BLOCK]
-        if not route_blocks:
-            error_line = "target: (missing)"
-            raise DSLSyntaxError(ErrorType.SEMANTIC_ROUTES, error_line, 0, 0, None)
-        
-        pr(M.Debug.PARSING_FINISH, count=len(program.children))
-        
-        return program
+        pr(M.Debug.PARSING_FINISH)
+        return self.ast
     
     def _parse_source(self) -> SourceNode:
         """Создает узел источника данных"""
@@ -91,46 +125,60 @@ class Parser:
             token.value['value']
         )
     
-    def _parse_route_block(self) -> RouteBlockNode:
-        """Создает блок маршрутов"""
-        token = self.tokens[self.position]
-        target_name = token.value
-        self.position += 1
+    def _parse_route_line(self, token):
+        """Разбор строки маршрута."""
+        src_field = token.value['src_field']
+        pipeline_text = token.value.get('pipeline')
+        target_field = token.value['target_field']
+        target_field_type = token.value.get('target_field_type')
         
-        route_block = RouteBlockNode(target_name)
+        # Создаем узел исходного поля
+        field_src = FieldSrcNode(src_field)
         
-        pr(M.Debug.PARSING_ROUTE_BLOCK, target=target_name)
+        # Обрабатываем конвейер
+        pipeline = self._parse_pipeline(pipeline_text) if pipeline_text else PipelineNode()
         
-        # Собираем все строки маршрутов для этого блока
-        while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
-            route_line = self._parse_route_line()
-            route_block.routes.append(route_line)
+        # Создаем узел целевого поля
+        field_dst = None
         
-        return route_block
-    
-    def _parse_route_line(self) -> RouteLineNode:
-        """Создает строку маршрута"""
-        token = self.tokens[self.position]
-        route_data = token.value
-        self.position += 1
-        
-        # Исходное поле
-        src_field = FieldSrcNode(route_data['src_field'])
-        
-        # Конвейер обработки
-        pipeline = self._parse_pipeline(route_data['pipeline'])
-        
-        # Целевое поле (может отсутствовать)
-        target_field = None
-        if route_data['target_field'] is not None:
-            target_field = FieldDstNode(
-                route_data['target_field'],
-                route_data['target_field_type'] or 'str'
+        # Проверяем случай с пустым целевым полем, чтобы различать [] и [field] без типа
+        if target_field == "":
+            # Пустое поле, как в [age] -> |*check_age| -> [] или [score] -> |*validate_score| -> []()
+            # Проверяем, указан ли тип для пустого поля (что является ошибкой)
+            if target_field_type is not None:
+                # Ошибка: указан тип для пустого поля
+                from .errors import VoidTypeError
+                original_line = token.value.get('line', f"[{src_field}] -> ... -> []({target_field_type})")
+                error = VoidTypeError(original_line, token.position, original_line.rfind(']') + 1)
+                pr(str(error))
+                sys.exit(1)
+                
+            field_dst = FieldDstNode(name=None, type_name=None)
+        elif target_field:
+            # Есть поле, например [id] -> [external_id](str)
+            # Проверяем, указан ли тип явно
+            if target_field_type is None:
+                # Ошибка: не указан тип для непустого поля
+                error_msg = f"Не указан тип для поля [{target_field}]"
+                from .errors import FinalTypeError
+                original_line = token.value.get('line', f"[{src_field}] -> ... -> [{target_field}]")
+                error = FinalTypeError(original_line, token.position, original_line.rfind(']') + 1)
+                pr(str(error))
+                sys.exit(1)
+                
+            field_dst = FieldDstNode(
+                name=target_field,
+                type_name=target_field_type
             )
+            
+        # Создаем узел строки маршрута
+        route_line = RouteLineNode(
+            src_field=field_src,
+            pipeline=pipeline,
+            target_field=field_dst
+        )
         
-        pr(M.Debug.ROUTE_LINE_CREATED, src=src_field.name, dst=target_field.name if target_field else '-')
-        
-        return RouteLineNode(src_field, pipeline, target_field)
+        return route_line
     
     def _parse_pipeline(self, pipeline_str: str) -> PipelineNode:
         """Создает конвейер обработки"""
@@ -160,9 +208,43 @@ class Parser:
                 
                 if segment.startswith('*'):
                     # Функция Python
+                    # Извлекаем имя функции и параметры
+                    func_name = segment[1:]  # Убираем *
+                    param = "$this"  # Параметр по умолчанию
+                    is_pre_var = False
+                    is_external_var = False
+                    
+                    # Проверяем наличие скобок с параметрами
+                    if '(' in func_name and func_name.endswith(')'):
+                        param_start = func_name.find('(')
+                        param_end = func_name.rfind(')')
+                        
+                        # Извлекаем параметр
+                        param_str = func_name[param_start+1:param_end].strip()
+                        
+                        # Проверяем на тип параметра
+                        if param_str.startswith('$^'):
+                            # Пре-переменная
+                            param = param_str
+                            is_pre_var = True
+                        elif param_str.startswith('$$'):
+                            # Внешняя переменная
+                            param = param_str
+                            is_external_var = True
+                        elif param_str.startswith('$'):
+                            # Обычная переменная
+                            param = param_str
+                        else:
+                            # Строковый или другой литерал
+                            param = param_str
+                        
+                        # Оставляем только имя функции
+                        func_name = func_name[:param_start]
+                    
                     pipeline.items.append(PipelineItemNode(
                         PipelineItemType.PY_FUNC,
-                        segment
+                        func_name,
+                        params={"param": param, "is_pre_var": is_pre_var, "is_external_var": is_external_var}
                     ))
                     pr(M.Debug.PIPELINE_ITEM_ADDED, type=PipelineItemType.PY_FUNC.value, value=segment)
                 else:
@@ -175,6 +257,11 @@ class Parser:
         
         return pipeline
 
+    def _error(self, message):
+        """Генерирует сообщение об ошибке и прерывает выполнение"""
+        pr(f"Ошибка парсинга: {message}", "red")
+        sys.exit(1)
+
 
 # Импортируем TokenType в конце файла, чтобы избежать циклических зависимостей
-from .constants import TokenType, NodeType 
+from .constants import NodeType 

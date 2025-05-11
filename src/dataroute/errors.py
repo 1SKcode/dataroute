@@ -88,7 +88,7 @@ class SyntaxErrorHandler:
             "final_type_missing": r'\]\s*$|\]\s*(?!\()',
             
             # Для проверки синтаксиса источника
-            "source_syntax": r'sourse\s+\w+',
+            "source_syntax": r'source\s+\w+',
             
             # Для проверки синтаксиса цели
             "target_syntax": r'=\s*\w+\s*\[\s*["\'](.*?)["\']'
@@ -108,19 +108,43 @@ class SyntaxErrorHandler:
         
         # Проверка синтаксиса определения источника и цели
         if re.match(self.patterns["source_syntax"], line):
-            pos = line.find('sourse') + len('sourse')
+            pos = line.find('source') + len('source')
             return DSLSyntaxError(ErrorType.SYNTAX_SOURCE, line, line_num, pos, None)
         
         if re.search(self.patterns["target_syntax"], line):
             pos = line.find('[')
             return DSLSyntaxError(ErrorType.SYNTAX_TARGET, line, line_num, pos, None)
         
-        # Проверка на финальный тип
-        if ']' in line and '->' in line:  # Убедимся, что это строка маршрута
+        # Проверка на конечное поле с типом
+        if "->" in line and "]" in line:
+            # Проверка полей без типа - поиск шаблона [field_name] без скобок типа после
+            field_match = re.search(r'\[\s*([a-zA-Z0-9_]+)\s*\]', line)
+            if field_match:
+                field_pos = field_match.end()
+                # Проверяем, что после закрывающей скобки нет открывающей скобки для типа
+                if field_pos < len(line) and '(' not in line[field_pos:]:
+                    # Если после скобки есть текст, и это не пустые скобки []
+                    if field_match.group(1):  # Есть имя внутри скобок
+                        # Убедимся, что это финальная часть строки (после ->)
+                        arrow_pos = line.rfind('->')
+                        if arrow_pos != -1 and field_pos > arrow_pos:
+                            return FinalTypeError(line, line_num, field_pos)
+            
+            # Проверяем, есть ли после последней "]" скобок типа "(" и ")"
             last_bracket_pos = line.rfind(']')
-            # После последней ] должна быть (
-            if last_bracket_pos != -1 and ('(' not in line[last_bracket_pos:]):
-                return FinalTypeError(line, line_num, last_bracket_pos + 1)
+            if last_bracket_pos != -1:
+                after_bracket = line[last_bracket_pos:]
+                
+                # Если после скобки есть текст, но нет открывающей скобки типа или тип пустой ()
+                if '(' in after_bracket and ')' in after_bracket and \
+                   after_bracket.find('(') < after_bracket.find(')') and \
+                   len(after_bracket[after_bracket.find('(')+1:after_bracket.find(')')].strip()) == 0:
+                    # Проверяем содержимое скобок
+                    bracket_content = line[line.rfind('[')+1:last_bracket_pos].strip()
+                    if not bracket_content:  # Пустое поле с типом - ошибка
+                        return VoidTypeError(line, line_num, last_bracket_pos + 1)
+                    else:  # Непустое поле с пустым типом - ошибка
+                        return FinalTypeError(line, line_num, after_bracket.find('(') + 1)
         
         # Проверка на символ направления
         direction_missing = False
@@ -271,3 +295,24 @@ class PipelineEmptyError(DSLSyntaxError):
         if empty_pipeline_match:
             return empty_pipeline_match.start() + 1
         return 0 
+
+
+class VoidTypeError(DSLSyntaxError):
+    """Ошибка указания типа для void-поля"""
+    
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        # Будем использовать тип ошибки FINAL_TYPE, но с особой подсказкой
+        super().__init__(ErrorType.VOID_TYPE, line, line_num, position, None)
+        # Заменяем стандартную подсказку на специальную для void-поля
+        self.suggestion = self.loc.get(Messages.Hint.VOID_NO_TYPE)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Ищем позицию после пустых квадратных скобок []
+        empty_bracket_match = re.search(r'\[\]\s*\(', line)
+        if empty_bracket_match:
+            return empty_bracket_match.start() + 2
+        # Если не нашли, используем последнюю ]
+        last_bracket_pos = line.rfind(']')
+        if last_bracket_pos != -1:
+            return last_bracket_pos + 1
+        return len(line) - 1 

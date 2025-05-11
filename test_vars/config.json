@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "TestApp",
+    "settings": {
+      "maxItems": 100,
+      "debug": true
+    }
+  },
+  "database": {
+    "credentials": {
+      "username": "admin",
+      "password": "secret"
+    }
+  }
+}

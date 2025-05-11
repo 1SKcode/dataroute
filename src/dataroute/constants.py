@@ -11,6 +11,8 @@ class TokenType(Enum):
     TARGET = auto()      # Определение цели (target1=dict("target1"))
     ROUTE_HEADER = auto() # Заголовок маршрута (target1:)
     ROUTE_LINE = auto()  # Строка маршрута ([id] -> |*s1| -> [name](type))
+    GLOBAL_VAR = auto()   # Глобальная переменная ($var = value)
+    COMMENT = auto()      # Комментарий (# ...)
     CONDITION = auto()   # Условное выражение (if (exp) : (else))
     EVENT = auto()       # Событие (ROLLBACK, SKIP, NOTIFY)
 
@@ -25,6 +27,7 @@ class NodeType(Enum):
     PIPELINE = auto()     # Конвейер обработки
     FIELD_SRC = auto()    # Исходное поле
     FIELD_DST = auto()    # Целевое поле
+    GLOBAL_VAR = auto()    # Глобальная переменная
     CONDITION = auto()    # Условное выражение
     EVENT = auto()        # Событие
     FUNC_CALL = auto()    # Вызов функции
@@ -51,6 +54,7 @@ class ErrorType(Enum):
     SEMANTIC_ROUTES = auto()       # Ошибка семантики маршрутов
     PIPELINE_EMPTY = auto()        # Пустой пайплайн
     UNKNOWN = auto()               # Неизвестная ошибка
+    VOID_TYPE = auto()             # Ошибка указания типа для void
 
 
 # ==============================================================
@@ -66,6 +70,7 @@ ERROR_MESSAGE_MAP = {
     ErrorType.BRACKET_MISSING: M.Error.BRACKET_MISSING,
     ErrorType.FLOW_DIRECTION: M.Error.FLOW_DIRECTION,
     ErrorType.FINAL_TYPE: M.Error.FINAL_TYPE,
+    ErrorType.VOID_TYPE: M.Error.VOID_TYPE,
     ErrorType.SYNTAX_SOURCE: M.Error.SYNTAX_SOURCE,
     ErrorType.SYNTAX_TARGET: M.Error.SYNTAX_TARGET,
     ErrorType.SEMANTIC_TARGET: M.Error.SEMANTIC_TARGET,
@@ -80,6 +85,7 @@ ERROR_HINT_MAP = {
     ErrorType.BRACKET_MISSING: M.Hint.CHECK_BRACKETS,
     ErrorType.FLOW_DIRECTION: M.Hint.USE_FLOW_SYMBOL,
     ErrorType.FINAL_TYPE: M.Hint.SPECIFY_TYPE,
+    ErrorType.VOID_TYPE: M.Hint.VOID_NO_TYPE,
     ErrorType.SYNTAX_SOURCE: M.Hint.SOURCE_SYNTAX,
     ErrorType.SYNTAX_TARGET: M.Hint.TARGET_SYNTAX,
     ErrorType.PIPELINE_EMPTY: M.Hint.PIPELINE_MUST_HAVE_CONTENT,
@@ -94,8 +100,8 @@ ERROR_HINT_MAP = {
 # ==============================================================
 
 PATTERNS = {
-    # Определение источника: sourse=dict
-    TokenType.SOURCE: r'sourse\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)',
+    # Определение источника: source=dict
+    TokenType.SOURCE: r'source\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)',
     
     # Определение цели: target1=dict("target1")
     TokenType.TARGET: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)',
@@ -103,6 +109,12 @@ PATTERNS = {
     # Заголовок маршрута: target1:
     TokenType.ROUTE_HEADER: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
     
+    # Глобальная переменная: $myVar = "value"
+    TokenType.GLOBAL_VAR: r'\$([a-zA-Z][a-zA-Z0-9_]*)\s*=\s*(.*)',
+    
+    # Комментарий: # This is a comment
+    TokenType.COMMENT: r'#(.*)',
+    
     # Строка маршрута с отступом: [id] -> |*s1| -> [external_id](str))
-    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>)\s*)?\[([a-zA-Z0-9_]+)\]\(([a-zA-Z0-9_]+)\)'
+    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>)\s*)?\[([$a-zA-Z0-9_]*)\](?:\(([a-zA-Z0-9_]+)\))?'
 } 

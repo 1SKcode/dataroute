@@ -49,6 +49,10 @@ class ASTVisitor(ABC):
     @abstractmethod
     def visit_field_dst(self, node):
         pass
+    
+    @abstractmethod
+    def visit_global_var(self, node):
+        pass
 
 
 class DataSourceStrategy(ABC):
@@ -165,4 +169,16 @@ class RouteLineNode(ASTNode):
     node_type: NodeType = NodeType.ROUTE_LINE
     
     def accept(self, visitor):
-        return visitor.visit_route_line(self) 
+        return visitor.visit_route_line(self)
+
+
+@dataclass
+class GlobalVarNode(ASTNode):
+    """Глобальная переменная"""
+    name: str            # Имя переменной (без $)
+    value: str           # Значение переменной (строковое представление)
+    value_type: str = "str"  # Тип переменной (по умолчанию строка)
+    node_type: NodeType = NodeType.GLOBAL_VAR
+    
+    def accept(self, visitor):
+        return visitor.visit_global_var(self) 

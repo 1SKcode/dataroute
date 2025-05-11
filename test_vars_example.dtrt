@@ -1,0 +1,14 @@
+# Пример использования внешних переменных
+
+source=dict
+target_out=dict("output")
+
+# Глобальные переменные
+$testVar = "Тестовое значение"
+
+target_out:
+    [name] -> |*normalize_name($$app.name)| -> [norm_name](str)
+    [age] -> |*check_age($$app.settings.maxItems)| -> [norm_age](int)
+    [score] -> |*validate_score($$app.settings.debug)| -> [valid_score](bool)
+    [data] -> |*transform_data($$database.credentials.username)| -> [user_data](str)
+    [test] -> |*process_test($testVar)| -> [processed_test](str) 

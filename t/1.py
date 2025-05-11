@@ -1,18 +1,19 @@
 import json
-from dataroute import parse_dsl
+from dataroute import DataRoute
 
 
 def main():
     correct_input = """
-sourse=dict
+source=dict
 
-target2=postgres("parser.norm_data")
 target1=dict("target_new")
+target2=postgres("parser.norm_data")
 
 target1:
-    [id] -> [external_id](str)
-    [name] => |*lower| - [low_name](str)
-    [age] - |*check_age| -> [age](int)
+    [id] -> [external_id]()
+    [name] => |*lower|*upper|*func1|*func2| - [low_name](str)
+    [age] - |*check_age| -> []
+    [score] - |*validate_score| -> []()
     [test1] -> [test_NORM](str)
 
 target2:
@@ -21,12 +22,15 @@ target2:
     [] -> |*gen_rand_int| -> [score](int)
     [] -> |*gen_rand_int| -> [score2](int)
 """
+# нужно сделать обработку для $ и $$ переменных в ф-иях
+# Добавить разложение в json на более подробные структуры
+    err1 = "ewrwe.dtrt"
 
-
-    result = parse_dsl(correct_input, debug=False, lang="ru", color=True)
-
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-
+    print("=== Тестирование пустых целевых полей ===")
+    dtrt = DataRoute(correct_input, debug=False, lang="ru", color=True)
+    result = dtrt.go()
+    dtrt.print_json()
 
 if __name__ == "__main__":
-    main() 
+    main()
+    
