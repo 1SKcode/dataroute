@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from .lexer import Lexer
 from .parser import Parser
 from .json_generator import JSONGenerator
-from .errors import DSLSyntaxError
+from .errors import DSLSyntaxError, ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError, ExternalVarPathNotFoundError
 from .localization import Messages as M, Localization
 from .mess_core import colorize, pr
 from .config import Config
@@ -198,15 +198,15 @@ class Engine:
         
         Этот метод выполняет полный цикл обработки DSL:
         1. Загрузка текста из источника
-        2. Лексический анализ (токенизация)
-        3. Синтаксический анализ (парсинг)
-        4. Построение JSON структуры
+        2. Лексический анализ
+        3. Синтаксический анализ
+        4. Генерация JSON
         
-        Returns:
-            Dict[str, Any]: JSON-структура, представляющая обработанный DSL
-            
         Raises:
-            SystemExit: При синтаксических ошибках или других проблемах
+            Exception: При ошибках обработки. Текст ошибки локализован.
+            
+        Returns:
+            Dict: Результирующая структура данных
         """
         # Полный сброс предыдущего результата и состояния компонентов
         self._result = None
@@ -214,38 +214,85 @@ class Engine:
         # Пересоздаем компоненты для полного сброса их внутреннего состояния
         self._lexer = Lexer()
         self._parser = Parser()
-        self._json_generator = JSONGenerator(self._vars_folder)
+        # Не создаем новый JSONGenerator, а очищаем состояние существующего
+        if hasattr(self._json_generator, 'reset'):
+            self._json_generator.reset()
         # Обновляем локализацию
         self._update_localization()
         
-        self._print(M.Info.PROCESSING_START)
-        
         try:
-            # Загружаем исходный код
+            # Загружаем текст
             self._text = self._load_source()
             
-            # Этап 1: Лексический анализ
+            # Информационное сообщение о начале обработки
+            pr(M.Info.PROCESSING_START)
+            
+            # Критическая проверка папки с переменными
+            if self._vars_folder and not os.path.isdir(self._vars_folder):
+                error = ExternalVarsFolderNotFoundError(self._vars_folder)
+                pr(str(error), file=sys.stderr)
+                sys.exit(1)
+            
+            # Лексический анализ
             tokens = self._lexer.tokenize(self._text)
             
-            # Этап 2: Синтаксический анализ
+            # Синтаксический анализ
             ast = self._parser.parse(tokens)
             
-            # Этап 3: Обход AST и генерация JSON
+            # Генерация JSON
             self._result = ast.accept(self._json_generator)
             
-            self._print(M.Info.PROCESSING_FINISH)
+            # Информационное сообщение о завершении обработки
+            pr(M.Info.PROCESSING_FINISH)
             
             return self._result
             
         except DSLSyntaxError as e:
-            # Выводим ошибку в красивом формате
-            self._print(str(e))
+            # Ошибки синтаксиса с указанием позиции
+            pr(str(e), file=sys.stderr)
             sys.exit(1)
-        except Exception as e:
-            # Для других ошибок выводим стандартное сообщение
-            self._print(M.Error.GENERIC, message=str(e))
+            
+        except ExternalVarsFolderNotFoundError as e:
+            # Ошибка папки с внешними переменными
+            pr(str(e), file=sys.stderr)
+            sys.exit(1)
+            
+        except ExternalVarFileNotFoundError as e:
+            # Ошибка файла с внешними переменными
+            pr(str(e), file=sys.stderr)
+            sys.exit(1)
+            
+        except ExternalVarPathNotFoundError as e:
+            # Ошибка пути во внешней переменной
+            pr(str(e), file=sys.stderr)
+            sys.exit(1)
+            
+        except FileNotFoundError as e:
+            # Файл не найден или путь неверный
+            pr(f"Ошибка: {str(e)}", file=sys.stderr)
             if self._debug:
-                traceback.print_exc()
+                pr(traceback.format_exc(), file=sys.stderr)
+            sys.exit(1)
+            
+        except KeyError as e:
+            # Ошибки с переменными (ключ не найден)
+            pr(f"Ошибка: {str(e)}", file=sys.stderr)
+            if self._debug:
+                pr(traceback.format_exc(), file=sys.stderr)
+            sys.exit(1)
+            
+        except ValueError as e:
+            # Ошибки с неправильными значениями
+            pr(f"Ошибка: {str(e)}", file=sys.stderr)
+            if self._debug:
+                pr(traceback.format_exc(), file=sys.stderr)
+            sys.exit(1)
+            
+        except Exception as e:
+            # Все прочие ошибки
+            pr(f"Ошибка при обработке DSL: {str(e)}", "red", file=sys.stderr)
+            if self._debug:
+                pr(traceback.format_exc(), file=sys.stderr)
             sys.exit(1)
     
     def to_json(self, output_file: Optional[str] = None, indent: int = 2) -> Optional[str]:

@@ -2,12 +2,14 @@ from typing import Dict, List, Any
 import json
 import os
 import glob
+import re
 
 from .ast_nodes import ASTVisitor
 from .constants import PipelineItemType
 from .localization import Localization, Messages as M
 from .config import Config
 from .mess_core import pr
+from .errors import ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError, ExternalVarPathNotFoundError
 
 
 class JSONGenerator(ASTVisitor):
@@ -28,8 +30,27 @@ class JSONGenerator(ASTVisitor):
         if vars_folder and os.path.isdir(vars_folder):
             self._load_external_vars()
         elif vars_folder and not os.path.isdir(vars_folder):
-            pr(f"Ошибка: Папка с внешними переменными не найдена: {vars_folder}", "red")
+            # Вместо прямого вывода сообщения, создаем и сохраняем ошибку
+            # для последующей обработки
+            self._vars_folder_error = ExternalVarsFolderNotFoundError(vars_folder)
+        else:
+            self._vars_folder_error = None
         
+        self.loc = Localization(Config.get_lang())
+    
+    def reset(self):
+        """Сбрасывает состояние генератора для повторного использования"""
+        self.result = {}
+        self.source_type = None
+        self.current_target = None
+        self.void_counters = {}
+        self.target_name_map = {}
+        self.target_info_map = {}
+        self.global_vars = {}
+        # НЕ сбрасываем кеш внешних переменных, чтобы избежать повторной загрузки
+        # НЕ сбрасываем vars_folder и _vars_folder_error
+        
+        # Обновляем локализацию на случай, если язык изменился
         self.loc = Localization(Config.get_lang())
     
     def _load_external_vars(self):
@@ -55,25 +76,59 @@ class JSONGenerator(ASTVisitor):
             except Exception as e:
                 pr(f"Ошибка при загрузке файла {json_file}: {str(e)}", "red")
     
-    def get_external_var_value(self, var_path: str):
-        """Получает значение внешней переменной по пути с точечной нотацией"""
+    def get_external_var_value(self, var_path: str, node_context=None):
+        """
+        Получает значение внешней переменной по пути с точечной нотацией
+        
+        Args:
+            var_path (str): Путь к переменной в формате $$file.path.to.var
+            node_context: Опциональный контекст узла для лучшей диагностики ошибок
+        
+        Returns:
+            Any: Значение переменной
+            
+        Raises:
+            ExternalVarsFolderNotFoundError: Если папка с переменными не найдена
+            ExternalVarFileNotFoundError: Если файл с переменными не найден
+            ExternalVarPathNotFoundError: Если путь в переменной не найден
+        """
         if not var_path.startswith('$$'):
             return None
+        
+        # Если была ошибка при загрузке папки с переменными, вызываем исключение
+        if hasattr(self, '_vars_folder_error') and self._vars_folder_error:
+            if node_context and hasattr(node_context, 'source_line'):
+                # Создаем новую ошибку с информацией о позиции из узла
+                raise ExternalVarsFolderNotFoundError(
+                    self._vars_folder_error.folder_name,
+                    line=node_context.source_line,
+                    line_num=node_context.line_num,
+                    position=node_context.position
+                )
+            raise self._vars_folder_error
         
         # Убираем префикс $$ и разбиваем по точкам
         path_parts = var_path[2:].split('.')
         
         if not path_parts:
-            pr(f"Ошибка: Некорректная внешняя переменная: {var_path}", "red")
-            return None
+            raise ValueError(f"Некорректная внешняя переменная: {var_path}")
         
         # Первая часть - имя файла
         file_name = path_parts[0]
         
         # Проверяем, что файл загружен
         if file_name not in self.external_vars:
-            pr(f"Ошибка: Внешняя переменная из файла {file_name} не найдена", "red")
-            return None
+            # Создаем ошибку с учетом контекста узла, если он предоставлен
+            if node_context and hasattr(node_context, 'source_line'):
+                raise ExternalVarFileNotFoundError(
+                    file_name,
+                    line=node_context.source_line,
+                    line_num=node_context.line_num,
+                    position=node_context.position,
+                    node_value=node_context.value
+                )
+            # Если нет контекста, используем стандартную ошибку
+            raise ExternalVarFileNotFoundError(file_name)
         
         # Начинаем с корня файла
         current = self.external_vars[file_name]
@@ -86,8 +141,17 @@ class JSONGenerator(ASTVisitor):
                 current = current[int(part)]
             else:
                 path_so_far = '.'.join(path_parts[:i+1])
-                pr(f"Ошибка: Путь {path_so_far} не найден во внешних переменных", "red")
-                return None
+                # Генерируем специальную ошибку для пути с учетом контекста
+                if node_context and hasattr(node_context, 'source_line'):
+                    raise ExternalVarPathNotFoundError(
+                        path_so_far,
+                        line=node_context.source_line,
+                        line_num=node_context.line_num,
+                        position=node_context.position,
+                        node_value=node_context.value
+                    )
+                # Если нет контекста, используем стандартную ошибку
+                raise ExternalVarPathNotFoundError(path_so_far)
                 
         return current
     
@@ -194,59 +258,212 @@ class JSONGenerator(ASTVisitor):
     def visit_func_call(self, node):
         """Обход вызова функции"""
         param = node.params.get("param", "$this")
-        is_pre_var = node.params.get("is_pre_var", False)
         is_external_var = node.params.get("is_external_var", False)
         
-        # Проверяем на наличие внешней переменной
+        # Словарь с информацией о внешней переменной
+        external_var = {
+            "is_external_var": is_external_var,
+            "value": None
+        }
+        
+        # Строгая проверка внешних переменных
         if is_external_var and param.startswith('$$'):
-            # Проверка доступности внешней переменной при необходимости
-            external_value = self.get_external_var_value(param)
-            if external_value is None:
-                pr(f"Предупреждение: Внешняя переменная {param} не найдена, используется как есть", "yellow")
+            # Проверка доступности внешней переменной
+            try:
+                # Передаем узел для контекста ошибки
+                external_value = self.get_external_var_value(param, node_context=node)
+                if external_value is None:
+                    raise ValueError(f"Внешняя переменная {param} не найдена")
+                # Сохраняем значение внешней переменной в словаре
+                external_var["value"] = external_value
+            except (ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError) as e:
+                # Поднимаем специализированную ошибку с информацией о позиции
+                raise
+            except ExternalVarPathNotFoundError as e:
+                # Если у узла есть информация о позиции, используем её
+                if hasattr(node, 'source_line') and node.source_line:
+                    raise ExternalVarPathNotFoundError(
+                        e.path, 
+                        line=node.source_line, 
+                        line_num=node.line_num, 
+                        position=node.position, 
+                        node_value=node.value
+                    )
+                raise
         
         return {
             "type": PipelineItemType.PY_FUNC.value,
             "param": param,
-            "is_pre_var": is_pre_var,
-            "is_external_var": is_external_var,
+            "external_var": external_var,  # Вместо is_external_var используем словарь external_var
             "full_str": node.value
         }
     
     def visit_direct_map(self, node):
         """Обход прямого отображения"""
         param = node.params.get("param", "$this")
-        is_pre_var = node.params.get("is_pre_var", False)
         is_external_var = node.params.get("is_external_var", False)
         
-        # Проверяем на наличие внешней переменной
+        # Словарь с информацией о внешней переменной
+        external_var = {
+            "is_external_var": is_external_var,
+            "value": None
+        }
+        
+        # Строгая проверка внешних переменных - аналогично visit_func_call
         if is_external_var and param.startswith('$$'):
-            # Проверка доступности внешней переменной при необходимости
-            external_value = self.get_external_var_value(param)
-            if external_value is None:
-                pr(f"Предупреждение: Внешняя переменная {param} не найдена, используется как есть", "yellow")
+            try:
+                # Передаем узел для контекста ошибки
+                external_value = self.get_external_var_value(param, node_context=node)
+                if external_value is None:
+                    raise ValueError(f"Внешняя переменная {param} не найдена")
+                # Сохраняем значение внешней переменной в словаре
+                external_var["value"] = external_value
+            except (ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError) as e:
+                # Поднимаем специализированную ошибку
+                raise
+            except ExternalVarPathNotFoundError as e:
+                # Если у узла есть информация о позиции, используем её
+                if hasattr(node, 'source_line') and node.source_line:
+                    raise ExternalVarPathNotFoundError(
+                        e.path, 
+                        line=node.source_line, 
+                        line_num=node.line_num, 
+                        position=node.position, 
+                        node_value=node.value
+                    )
+                raise
         
         return {
             "type": PipelineItemType.DIRECT.value,
             "param": param,
-            "is_pre_var": is_pre_var,
-            "is_external_var": is_external_var,
+            "external_var": external_var,  # Вместо is_external_var используем словарь external_var
             "full_str": node.value
         }
     
     def visit_condition(self, node):
         """Обход условного выражения"""
-        return {
-            "type": PipelineItemType.CONDITION.value,
-            "condition": node.value,
-            "params": node.params
+        cond = node.value.strip()
+        
+        # Находим ключевые слова IF, ELIF, ELSE
+        pattern = re.compile(r'(?i)\b(IF|ELIF|ELSE)\b')
+        matches = list(pattern.finditer(cond))
+        
+        if not matches:
+            return {"type": PipelineItemType.CONDITION.value, "full_str": cond}
+            
+        # Формируем ветви
+        branches = []
+        for i, m in enumerate(matches):
+            key = m.group(1).upper()
+            start = m.start()
+            end = matches[i+1].start() if i+1 < len(matches) else len(cond)
+            branch_text = cond[start:end].strip()
+            branches.append((key, branch_text))
+            
+        # Определяем тип конструкции
+        has_elif = any(k.upper() == "ELIF" for k, _ in branches)
+        sub_type = "if_elifs_else" if has_elif else "if_else"
+        
+        result = {
+            "type": PipelineItemType.CONDITION.value, 
+            "sub_type": sub_type,
+            "full_str": cond
         }
+        
+        elif_counter = 0
+        
+        # Обрабатываем ветви
+        for key, text in branches:
+            key = key.upper()
+            if key in ("IF", "ELIF"):
+                # Извлекаем условие и действие
+                # Для IF и ELIF паттерн: KEY(condition): action
+                match = re.match(r'(?i)' + key + r'\s*\(([^)]*)\)\s*:\s*(.*)', text)
+                
+                if match:
+                    exp_str = match.group(1).strip()
+                    do_str = match.group(2).strip()
+                    
+                    # Парсинг выражения
+                    if exp_str.startswith('*'):
+                        exp_json = {
+                            "type": PipelineItemType.PY_FUNC.value, 
+                            "param": "$this", 
+                            "full_str": exp_str
+                        }
+                    else:
+                        exp_json = {
+                            "type": "cond_exp", 
+                            "full_str": exp_str
+                        }
+                    
+                    # Парсинг действия
+                    do_json = self._build_do_json(do_str)
+                    
+                    if key == "IF":
+                        result["if"] = {"exp": exp_json, "do": do_json}
+                    else:
+                        elif_counter += 1
+                        result[f"elif_{elif_counter}"] = {"exp": exp_json, "do": do_json}
+                else:
+                    # Если не нашли соответствие паттерну, пробуем другой подход
+                    if "(" in text and ")" in text and ":" in text:
+                        # Ищем скобки напрямую
+                        open_paren = text.find("(")
+                        close_paren = text.find(")", open_paren)
+                        colon = text.find(":", close_paren)
+                        
+                        if open_paren != -1 and close_paren != -1 and colon != -1:
+                            exp_str = text[open_paren+1:close_paren].strip()
+                            do_str = text[colon+1:].strip()
+                            
+                            # Парсинг выражения
+                            if exp_str.startswith('*'):
+                                exp_json = {
+                                    "type": PipelineItemType.PY_FUNC.value, 
+                                    "param": "$this", 
+                                    "full_str": exp_str
+                                }
+                            else:
+                                exp_json = {
+                                    "type": "cond_exp", 
+                                    "full_str": exp_str
+                                }
+                            
+                            # Парсинг действия
+                            do_json = self._build_do_json(do_str)
+                            
+                            if key == "IF":
+                                result["if"] = {"exp": exp_json, "do": do_json}
+                            else:
+                                elif_counter += 1
+                                result[f"elif_{elif_counter}"] = {"exp": exp_json, "do": do_json}
+            
+            elif key == "ELSE":
+                # Для ELSE паттерн: ELSE: action
+                match = re.match(r'(?i)ELSE\s*:\s*(.*)', text)
+                
+                if match:
+                    do_str = match.group(1).strip()
+                    do_json = self._build_do_json(do_str)
+                    result["else"] = {"do": do_json}
+                else:
+                    # Если не нашли соответствие паттерну, пробуем другой подход
+                    if ":" in text:
+                        colon = text.find(":")
+                        do_str = text[colon+1:].strip()
+                        do_json = self._build_do_json(do_str)
+                        result["else"] = {"do": do_json}
+        
+        return result
     
     def visit_event(self, node):
         """Обход события"""
         return {
             "type": PipelineItemType.EVENT.value,
-            "event": node.value,
-            "params": node.params
+            "sub_type": node.params.get("sub_type"),
+            "param": node.params.get("param"),
+            "full_str": node.value
         }
     
     def _get_void_key(self):
@@ -295,4 +512,27 @@ class JSONGenerator(ASTVisitor):
             "name": field_name,
             "value": field_value,
             "type": node.type_name
-        } 
+        }
+
+    # Вспомогательный метод для разбора действий внутри условного оператора
+    def _build_do_json(self, text: str) -> Dict[str, Any]:
+        text = text.strip()
+        # Функция Python
+        if text.startswith('*'):
+            func_text = text[1:]
+            param = "$this"
+            if '(' in func_text and func_text.endswith(')'):
+                idx = func_text.find('(')
+                param = func_text[idx+1:-1].strip()
+            return {"type": PipelineItemType.PY_FUNC.value, "param": param, "full_str": text}
+        # Событие: SKIP, ROLLBACK, NOTIFY
+        match = re.match(r'(?i)^(SKIP|ROLLBACK|NOTIFY)\((.*)\)$', text)
+        if match:
+            event_type = match.group(1).upper()
+            param_text = match.group(2)
+            return {"type": PipelineItemType.EVENT.value, "sub_type": event_type, "param": param_text, "full_str": text}
+        # Прямое отображение или переменная
+        if text.startswith('$') or text.isidentifier():
+            return {"type": PipelineItemType.DIRECT.value, "param": text, "full_str": text}
+        # Логическое выражение
+        return {"type": "cond_exp", "full_str": text} 

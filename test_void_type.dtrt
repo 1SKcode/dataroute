@@ -1,9 +1,0 @@
-source=dict
-target1=dict("target_new")
-
-target1:
-    [name] -> [user_name](str)
-    [age] -> |*check_age| -> []
-    [score] -> |*validate_score| -> []
-    [id] -> [external_id](str)
-    [data] -> |*process_data| -> [](int) 

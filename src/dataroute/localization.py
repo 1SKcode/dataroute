@@ -15,6 +15,7 @@ class Messages:
 
     class Warning:
         EMPTY_PIPELINE_SEGMENT = {"ru": ">O<Предупреждение:>RS< Обнаружен пустой сегмент пайплайна", "en": ">O<Warning:>RS< Empty pipeline segment detected"}
+        DIRECT_MAPPING_WITHOUT_STAR = {"ru": ">O<Предупреждение:>RS< Обнаружено прямое отображение [{src}] -> |{value}| без *. Возможно, вы забыли поставить * перед именем функции?", "en": ">O<Warning:>RS< Direct mapping [{src}] -> |{value}| without * detected. Did you forget to add * before function name?"}
 
     class Error:
         PIPELINE_CLOSING_BAR = {"ru": ">R<Закрывающая прямая черта пайплайна не найдена>RS<", "en": ">R<Pipeline closing bar is missing>RS<"}
@@ -31,10 +32,19 @@ class Messages:
         GENERIC = {"ru": ">R<Ошибка при обработке DSL:>RS< {message}", "en": ">R<Error processing DSL:>RS< {message}"}
         LINE_PREFIX = {"ru": ">R<Ошибка в строке {line_num}:>RS<", "en": ">R<Error in line {line_num}:>RS<"}
         FILE_NOT_FOUND = {"ru": ">R<Файл не найден:>RS< {file}. {message}", "en": ">R<File not found:>RS< {file}. {message}"}
-        DUPLICATE_VAR = {"ru": "Дублирующееся имя переменной: ${var_name}", "en": "Duplicate variable name: ${var_name}"}
-        VARS_FOLDER_NOT_FOUND = {"ru": "Папка с внешними переменными не найдена: {folder}", "en": "External variables folder not found: {folder}"}
-        EXTERNAL_VAR_FILE_NOT_FOUND = {"ru": "Файл с внешними переменными не найден: {file}", "en": "External variable file not found: {file}"}
-        EXTERNAL_VAR_PATH_NOT_FOUND = {"ru": "Путь не найден во внешней переменной: {path}", "en": "Path not found in external variable: {path}"}
+        DUPLICATE_VAR = {"ru": ">R<Дублирующееся имя переменной:>RS< ${var_name}", "en": ">R<Duplicate variable name:>RS< ${var_name}"}
+        VARS_FOLDER_NOT_FOUND = {"ru": ">R<Папка с внешними переменными не найдена:>RS< {folder}", "en": ">R<External variables folder not found:>RS< {folder}"}
+        EXTERNAL_VAR_FILE_NOT_FOUND = {"ru": ">R<Файл с внешними переменными не найден:>RS< {file}", "en": ">R<External variable file not found:>RS< {file}"}
+        EXTERNAL_VAR_PATH_NOT_FOUND = {"ru": ">R<Путь не найден во внешней переменной:>RS< {path}", "en": ">R<Path not found in external variable:>RS< {path}"}
+        UNKNOWN_PIPELINE_SEGMENT = {"ru": ">R<Неизвестное поведение внутри пайплайна>RS<", "en": ">R<Unknown behavior inside pipeline>RS<"}
+        UNDEFINED_VAR = {"ru": ">R<Переменная '${var_name}' не определена в текущем контексте>RS<", "en": ">R<Variable '${var_name}' is not defined in current context>RS<"}
+        INVALID_VAR_USAGE = {"ru": ">R<Некорректное использование переменной '${var_name}'>RS<", "en": ">R<Invalid usage of variable '${var_name}'>RS<"}
+        SRC_FIELD_AS_VAR = {"ru": ">R<Поле из левой части '${var_name}' нельзя использовать как переменную>RS<", "en": ">R<Source field '${var_name}' cannot be used as a variable>RS<"}
+        CONDITION_MISSING_IF = {"ru": ">R<В выражении может быть только if, но не может быть else без if>RS<", "en": ">R<Expression can only have if, but cannot have else without if>RS<"}
+        CONDITION_MISSING_PARENTHESIS = {"ru": ">R<Условная конструкция должна содержать знак скобок>RS<", "en": ">R<Conditional construction must contain parentheses>RS<"}
+        CONDITION_EMPTY_EXPRESSION = {"ru": ">R<Не найдено логическое выражение внутри условной конструкции>RS<", "en": ">R<No logical expression found inside conditional construction>RS<"}
+        CONDITION_MISSING_COLON = {"ru": ">R<Не найден знак завершения условного выражения (:)>RS<", "en": ">R<Closing symbol (:) of the conditional expression not found>RS<"}
+        CONDITION_INVALID = {"ru": ">R<Недопустимое или неправильное условное выражение>RS<", "en": ">R<Invalid or incorrect conditional expression>RS<"}
 
     class Hint:
         LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
@@ -54,6 +64,15 @@ class Messages:
         VARS_FOLDER_NOT_FOUND = {"ru": "Убедитесь, что папка существует и доступна для чтения", "en": "Make sure the folder exists and is readable"}
         EXTERNAL_VAR_FILE_NOT_FOUND = {"ru": "Проверьте, существует ли файл в папке внешних переменных", "en": "Check if the file exists in the external variables folder"}
         EXTERNAL_VAR_PATH_NOT_FOUND = {"ru": "Проверьте путь во внешней переменной", "en": "Check the path in the external variable"}
+        UNKNOWN_PIPELINE_SEGMENT = {"ru": "Используйте *имя_функции для вызова функции или усло", "en": "Use *function_name to call a function or if for conditions"}
+        UNDEFINED_VAR = {"ru": "Переменная должна быть определена перед использованием. Пример: [field] -> |*func| -> [$var_name](type)", "en": "Variable must be defined before usage. Example: [field] -> |*func| -> [$var_name](type)"}
+        INVALID_VAR_USAGE = {"ru": "В пайплайне до определения результата можно использовать только переменные с префиксом $^", "en": "Only variables with $^ prefix can be used in pipeline before result definition"}
+        SRC_FIELD_AS_VAR = {"ru": "Создайте отдельный маршрут для сохранения поля в переменную: [field] -> [$var_field](type), затем используйте $var_field", "en": "Create a separate route to save the field as a variable: [field] -> [$var_field](type), then use $var_field"}
+        CONDITION_MISSING_IF = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
+        CONDITION_MISSING_PARENTHESIS = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
+        CONDITION_EMPTY_EXPRESSION = {"ru": "Добавьте логическое выражение внутрь условной конструкции IF(услвие). используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Add logical expression inside conditional construction IF(condition). Use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
+        CONDITION_MISSING_COLON = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
+        CONDITION_INVALID = {"ru": "Проверьте правильность условного выражения и используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Check the correctness of the conditional expression and use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
     class Debug:
         PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
         ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}
@@ -99,12 +118,3 @@ class Localization:
                 return f"{text} (Missing parameter: {e})"
         
         return text
-    
-    def add_language(self, lang_code: str) -> None:
-        """Добавляет поддержку нового языка"""
-        if lang_code not in self.SUPPORTED_LANGUAGES:
-            self.SUPPORTED_LANGUAGES.append(lang_code)
-    
-    def switch_language(self, lang: str) -> None:
-        """Переключает текущий язык"""
-        self.lang = lang if lang in self.SUPPORTED_LANGUAGES else self.DEFAULT_LANGUAGE 

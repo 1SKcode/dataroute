@@ -55,6 +55,16 @@ class ErrorType(Enum):
     PIPELINE_EMPTY = auto()        # Пустой пайплайн
     UNKNOWN = auto()               # Неизвестная ошибка
     VOID_TYPE = auto()             # Ошибка указания типа для void
+    UNKNOWN_PIPELINE_SEGMENT = auto()  # Неизвестный сегмент в пайплайне
+    UNDEFINED_VAR = auto()         # Неопределенная переменная
+    INVALID_VAR_USAGE = auto()     # Неверное использование переменной
+    SRC_FIELD_AS_VAR = auto()      # Использование поля из левой части как переменной
+    # Новые типы ошибок для условных конструкций
+    CONDITION_MISSING_IF = auto()  # В выражении может быть только if, но не может быть else без if
+    CONDITION_MISSING_PARENTHESIS = auto()  # Условная конструкция должна содержать знак скобок
+    CONDITION_EMPTY_EXPRESSION = auto()  # Не найдено логическое выражение внутри условной конструкции
+    CONDITION_MISSING_COLON = auto()  # Не найден знак завершения условного выражения (:)
+    CONDITION_INVALID = auto()  # Недопустимое или неправильное условное выражение
 
 
 # ==============================================================
@@ -76,7 +86,17 @@ ERROR_MESSAGE_MAP = {
     ErrorType.SEMANTIC_TARGET: M.Error.SEMANTIC_TARGET,
     ErrorType.SEMANTIC_ROUTES: M.Error.SEMANTIC_ROUTES,
     ErrorType.PIPELINE_EMPTY: M.Error.PIPELINE_EMPTY,
-    ErrorType.UNKNOWN: M.Error.UNKNOWN
+    ErrorType.UNKNOWN: M.Error.UNKNOWN,
+    ErrorType.UNKNOWN_PIPELINE_SEGMENT: M.Error.UNKNOWN_PIPELINE_SEGMENT,
+    ErrorType.UNDEFINED_VAR: M.Error.UNDEFINED_VAR,
+    ErrorType.INVALID_VAR_USAGE: M.Error.INVALID_VAR_USAGE,
+    ErrorType.SRC_FIELD_AS_VAR: M.Error.SRC_FIELD_AS_VAR,
+    # Новые сообщения для условных конструкций
+    ErrorType.CONDITION_MISSING_IF: M.Error.CONDITION_MISSING_IF,
+    ErrorType.CONDITION_MISSING_PARENTHESIS: M.Error.CONDITION_MISSING_PARENTHESIS,
+    ErrorType.CONDITION_EMPTY_EXPRESSION: M.Error.CONDITION_EMPTY_EXPRESSION,
+    ErrorType.CONDITION_MISSING_COLON: M.Error.CONDITION_MISSING_COLON,
+    ErrorType.CONDITION_INVALID: M.Error.CONDITION_INVALID
 }
 
 # Связь между ErrorType и подсказками
@@ -91,7 +111,17 @@ ERROR_HINT_MAP = {
     ErrorType.PIPELINE_EMPTY: M.Hint.PIPELINE_MUST_HAVE_CONTENT,
     ErrorType.SEMANTIC_TARGET: M.Hint.TARGET_DEFINITION_MISSING,
     ErrorType.SEMANTIC_ROUTES: M.Hint.ROUTES_MISSING,
-    ErrorType.UNKNOWN: None
+    ErrorType.UNKNOWN: None,
+    ErrorType.UNKNOWN_PIPELINE_SEGMENT: M.Hint.UNKNOWN_PIPELINE_SEGMENT,
+    ErrorType.UNDEFINED_VAR: M.Hint.UNDEFINED_VAR,
+    ErrorType.INVALID_VAR_USAGE: M.Hint.INVALID_VAR_USAGE,
+    ErrorType.SRC_FIELD_AS_VAR: M.Hint.SRC_FIELD_AS_VAR,
+    # Новые подсказки для условных конструкций
+    ErrorType.CONDITION_MISSING_IF: M.Hint.CONDITION_MISSING_IF,
+    ErrorType.CONDITION_MISSING_PARENTHESIS: M.Hint.CONDITION_MISSING_PARENTHESIS,
+    ErrorType.CONDITION_EMPTY_EXPRESSION: M.Hint.CONDITION_EMPTY_EXPRESSION,
+    ErrorType.CONDITION_MISSING_COLON: M.Hint.CONDITION_MISSING_COLON,
+    ErrorType.CONDITION_INVALID: M.Hint.CONDITION_INVALID
 }
 
 

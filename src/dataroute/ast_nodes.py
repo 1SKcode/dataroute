@@ -8,15 +8,26 @@ from .constants import NodeType, PipelineItemType
 class ASTNode(ABC):
     """Базовый класс для узла абстрактного синтаксического дерева"""
     node_type: NodeType
+    # Информация о позиции в исходном коде
+    source_line: str = None  # Исходная строка
+    line_num: int = 0       # Номер строки
+    position: int = 0       # Позиция в строке
     
     @abstractmethod
     def accept(self, visitor):
-        """Принимает посетителя для обхода дерева"""
+        """Метод для паттерна посетителя"""
         pass
+
+    def set_position_info(self, source_line: str, line_num: int, position: int):
+        """Устанавливает информацию о позиции узла в исходном коде"""
+        self.source_line = source_line
+        self.line_num = line_num
+        self.position = position
+        return self
 
 
 class ASTVisitor(ABC):
-    """Базовый класс для посетителя AST"""
+    """Базовый класс посетителя для обхода AST"""
     
     @abstractmethod
     def visit_program(self, node):
@@ -54,13 +65,24 @@ class ASTVisitor(ABC):
     def visit_global_var(self, node):
         pass
 
-
-class DataSourceStrategy(ABC):
-    """Стратегия для работы с различными источниками данных"""
+    @abstractmethod
+    def visit_func_call(self, node):
+        pass
     
     @abstractmethod
-    def read_field(self, field_name: str, data: Any) -> Any:
-        """Чтение поля из источника данных"""
+    def visit_direct_map(self, node):
+        pass
+    
+    @abstractmethod
+    def visit_condition(self, node):
+        pass
+    
+    @abstractmethod
+    def visit_event(self, node):
+        pass
+
+    @abstractmethod
+    def visit_field(self, node):
         pass
 
 
@@ -134,26 +156,18 @@ class FieldDstNode(ASTNode):
 
 @dataclass
 class PipelineItemNode(ASTNode):
-    """Элемент конвейера обработки"""
-    item_type: PipelineItemType
+    """Базовый класс для элементов конвейера"""
     value: str
-    params: Dict[str, str] = field(default_factory=lambda: {"param": "$this"})
+    params: Dict[str, Any] = field(default_factory=dict)
     
     def accept(self, visitor):
-        if self.item_type == PipelineItemType.PY_FUNC:
-            return visitor.visit_func_call(self)
-        elif self.item_type == PipelineItemType.DIRECT:
-            return visitor.visit_direct_map(self)
-        elif self.item_type == PipelineItemType.CONDITION:
-            return visitor.visit_condition(self)
-        elif self.item_type == PipelineItemType.EVENT:
-            return visitor.visit_event(self)
+        pass
 
 
 @dataclass
 class PipelineNode(ASTNode):
-    """Конвейер обработки"""
-    items: List[PipelineItemNode] = field(default_factory=list)
+    """Узел конвейера обработки"""
+    items: List['PipelineItemNode'] = field(default_factory=list)
     node_type: NodeType = NodeType.PIPELINE
     
     def accept(self, visitor):
@@ -174,11 +188,47 @@ class RouteLineNode(ASTNode):
 
 @dataclass
 class GlobalVarNode(ASTNode):
-    """Глобальная переменная"""
-    name: str            # Имя переменной (без $)
-    value: str           # Значение переменной (строковое представление)
-    value_type: str = "str"  # Тип переменной (по умолчанию строка)
+    """Узел глобальной переменной"""
+    name: str
+    value: Any
+    value_type: str
     node_type: NodeType = NodeType.GLOBAL_VAR
     
     def accept(self, visitor):
-        return visitor.visit_global_var(self) 
+        return visitor.visit_global_var(self)
+
+
+@dataclass
+class FuncCallNode(PipelineItemNode):
+    """Узел вызова функции"""
+    node_type: NodeType = NodeType.FUNC_CALL
+    
+    def accept(self, visitor):
+        return visitor.visit_func_call(self)
+
+
+@dataclass
+class DirectMapNode(PipelineItemNode):
+    """Узел прямого отображения"""
+    node_type: NodeType = NodeType.DIRECT_MAP
+    
+    def accept(self, visitor):
+        return visitor.visit_direct_map(self)
+
+
+@dataclass
+class ConditionNode(PipelineItemNode):
+    """Узел условного выражения"""
+    node_type: NodeType = NodeType.CONDITION
+    
+    def accept(self, visitor):
+        return visitor.visit_condition(self)
+
+
+@dataclass
+class EventNode(PipelineItemNode):
+    """Узел события"""
+    node_type: NodeType = NodeType.EVENT
+    
+    def accept(self, visitor):
+        return visitor.visit_event(self) 

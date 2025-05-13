@@ -316,3 +316,492 @@ class VoidTypeError(DSLSyntaxError):
         if last_bracket_pos != -1:
             return last_bracket_pos + 1
         return len(line) - 1 
+
+
+class UnknownPipelineSegmentError(DSLSyntaxError):
+    """Ошибка неизвестного сегмента в пайплайне"""
+    
+    def __init__(self, line: str, line_num: int, segment: str, position: Optional[int] = None):
+        self.segment = segment
+        super().__init__(ErrorType.UNKNOWN_PIPELINE_SEGMENT, line, line_num, position, None)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Ищем позицию сегмента в строке
+        if self.segment and self.segment in line:
+            return line.find(self.segment)
+        
+        # Ищем сегмент между вертикальными чертами
+        pipe_pos = line.find('|')
+        if pipe_pos != -1:
+            next_pipe_pos = line.find('|', pipe_pos + 1)
+            if next_pipe_pos != -1:
+                return pipe_pos + 1
+        
+        return 0
+
+
+class UndefinedVarError(DSLSyntaxError):
+    """Ошибка неопределенной переменной"""
+    
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.UNDEFINED_VAR, line, line_num, position, None)
+        
+    def _guess_error_position(self, line: str) -> int:
+        """Определяет позицию ошибки в строке"""
+        # Ищем позицию переменной в строке
+        var_pos = line.find('$' + self.var_name)
+        if var_pos != -1:
+            return var_pos
+        
+        # Ищем позицию внутри пайплайна
+        pipe_pos = line.find('|')
+        if pipe_pos != -1:
+            next_pipe_pos = line.find('|', pipe_pos + 1)
+            if next_pipe_pos != -1:
+                return pipe_pos + 1
+        
+        return 0
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке с учетом имени переменной"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN), var_name=self.var_name)
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Добавляем подсказку для этого типа ошибки
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class InvalidVarUsageError(DSLSyntaxError):
+    """Ошибка неправильного использования переменной"""
+    
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.INVALID_VAR_USAGE, line, line_num, position, None)
+        
+    def _guess_error_position(self, line: str) -> int:
+        """Определяет позицию ошибки в строке"""
+        # Ищем позицию переменной в строке
+        var_pos = line.find('$' + self.var_name)
+        if var_pos != -1:
+            return var_pos
+        
+        # Ищем позицию внутри пайплайна
+        pipe_pos = line.find('|')
+        if pipe_pos != -1:
+            next_pipe_pos = line.find('|', pipe_pos + 1)
+            if next_pipe_pos != -1:
+                return pipe_pos + 1
+        
+        return 0
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке с учетом имени переменной"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN), var_name=self.var_name)
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Добавляем подсказку для этого типа ошибки
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class SrcFieldAsVarError(DSLSyntaxError):
+    """Ошибка использования поля из левой части как переменной"""
+    
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.SRC_FIELD_AS_VAR, line, line_num, position, None)
+        
+    def _guess_error_position(self, line: str) -> int:
+        """Определяет позицию ошибки в строке"""
+        # Ищем позицию переменной в строке
+        var_pos = line.find('$' + self.var_name)
+        if var_pos != -1:
+            return var_pos
+        
+        # Ищем позицию внутри пайплайна
+        pipe_pos = line.find('|')
+        if pipe_pos != -1:
+            next_pipe_pos = line.find('|', pipe_pos + 1)
+            if next_pipe_pos != -1:
+                return pipe_pos + 1
+        
+        return 0
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке с учетом имени переменной"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN), var_name=self.var_name)
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Добавляем подсказку для этого типа ошибки
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class ExternalVarsFolderNotFoundError(DSLSyntaxError):
+    """Ошибка: папка с внешними переменными не найдена"""
+    
+    def __init__(self, folder_name: str, line: str = None, line_num: int = 0, position: int = None):
+        self.folder_name = folder_name
+        # Создаем фиктивные параметры для базового класса
+        # т.к. эта ошибка не связана напрямую с конкретной строкой кода
+        dummy_line = f"vars_folder=\"{folder_name}\"" if line is None else line
+        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position or 0, None)
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке для папки с внешними переменными"""
+        message = self.loc.get(Messages.Error.VARS_FOLDER_NOT_FOUND, folder=self.folder_name)
+        hint = self.loc.get(Messages.Hint.VARS_FOLDER_NOT_FOUND)
+        hint_label = self.loc.get(Messages.Hint.LABEL)
+        
+        # Если есть информация о строке и номере строки, формируем сообщение с указателем
+        if self.line_num > 0:
+            # Форматируем строку с указателем на позицию ошибки
+            pointer = " " * self.position + "^"
+            
+            result = [
+                self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+                f"{self.line}",
+                f"{pointer}",
+                f"{message}",
+                f"{hint_label} {hint}"
+            ]
+        else:
+            # Если информации о строке нет, возвращаем базовое сообщение
+            result = [
+                message,
+                f"{hint_label} {hint}"
+            ]
+        
+        return "\n".join(result)
+
+
+class ExternalVarFileNotFoundError(DSLSyntaxError):
+    """Ошибка: файл с внешними переменными не найден"""
+    
+    def __init__(self, file_name: str, line: str = None, line_num: int = 0, position: int = None, node_value: str = None):
+        self.file_name = file_name
+        # Создаем фиктивные параметры для базового класса
+        dummy_line = f"$$file_name..." if line is None else line
+        
+        # Если передан узел, из которого можно извлечь информацию о позиции
+        if node_value and position is None:
+            if "$$" + file_name in node_value:
+                position = dummy_line.find("$$" + file_name)
+            elif file_name in node_value:
+                position = dummy_line.find(file_name)
+        
+        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position or 0, None)
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке для файла с внешними переменными"""
+        message = self.loc.get(Messages.Error.EXTERNAL_VAR_FILE_NOT_FOUND, file=self.file_name)
+        hint = self.loc.get(Messages.Hint.EXTERNAL_VAR_FILE_NOT_FOUND)
+        hint_label = self.loc.get(Messages.Hint.LABEL)
+        
+        # Если есть информация о строке и номере строки, формируем сообщение с указателем
+        if self.line_num > 0:
+            # Форматируем строку с указателем на позицию ошибки
+            pointer = " " * self.position + "^"
+            
+            result = [
+                self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+                f"{self.line}",
+                f"{pointer}",
+                f"{message}",
+                f"{hint_label} {hint}"
+            ]
+        else:
+            # Если информации о строке нет, возвращаем базовое сообщение
+            result = [
+                message,
+                f"{hint_label} {hint}"
+            ]
+        
+        return "\n".join(result)
+
+
+class ExternalVarPathNotFoundError(DSLSyntaxError):
+    """Ошибка: путь не найден во внешней переменной"""
+    
+    def __init__(self, path: str, line: str = None, line_num: int = 0, position: int = None, node_value: str = None):
+        self.path = path
+        # Создаем фиктивные параметры для базового класса, если строка не передана
+        dummy_line = f"$${path}" if line is None else line
+        # Если передан узел, из которого можно извлечь информацию о позиции
+        if node_value and position is None:
+            if "$$" + path in node_value:
+                position = dummy_line.find("$$" + path)
+            elif path in node_value:
+                position = dummy_line.find(path)
+        
+        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position, None)
+        
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке для пути во внешней переменной"""
+        message = self.loc.get(Messages.Error.EXTERNAL_VAR_PATH_NOT_FOUND, path=self.path)
+        hint = self.loc.get(Messages.Hint.EXTERNAL_VAR_PATH_NOT_FOUND)
+        hint_label = self.loc.get(Messages.Hint.LABEL)
+        
+        # Если есть информация о строке и номере строки, формируем сообщение с указателем
+        if self.line_num > 0:
+            # Форматируем строку с указателем на позицию ошибки
+            pointer = " " * self.position + "^"
+            
+            result = [
+                self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+                f"{self.line}",
+                f"{pointer}",
+                f"{message}",
+                f"{hint_label} {hint}"
+            ]
+        else:
+            # Если информации о строке нет, возвращаем базовое сообщение
+            result = [
+                message,
+                f"{hint_label} {hint}"
+            ]
+        
+        return "\n".join(result)
+
+
+class ConditionMissingIfError(DSLSyntaxError):
+    """Ошибка: конструкция ELSE без IF"""
+    
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.CONDITION_MISSING_IF, line, line_num, position)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Находим позицию ELSE в строке
+        else_pos = line.lower().find("else")
+        if else_pos != -1:
+            return else_pos
+        return 0
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.CONDITION_MISSING_IF))
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Если есть подсказка в карте подсказок, добавляем её
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class ConditionMissingColonError(DSLSyntaxError):
+    """Ошибка: не найден знак завершения условного выражения (:)"""
+    
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.CONDITION_MISSING_COLON, line, line_num, position)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Находим позицию после закрывающей скобки
+        # или после IF/ELIF
+        close_paren_pos = line.find(")")
+        if close_paren_pos != -1:
+            return close_paren_pos + 1
+        
+        # Если нет скобок, ищем после IF/ELIF
+        for keyword in ["if", "elif"]:
+            keyword_pos = line.lower().find(keyword)
+            if keyword_pos != -1:
+                return keyword_pos + len(keyword)
+        
+        return 0
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.CONDITION_MISSING_COLON))
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Если есть подсказка в карте подсказок, добавляем её
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class ConditionMissingParenthesisError(DSLSyntaxError):
+    """Ошибка: условная конструкция должна содержать знак скобок"""
+    
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.CONDITION_MISSING_PARENTHESIS, line, line_num, position)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Находим позицию после IF/ELIF
+        for keyword in ["if", "elif"]:
+            keyword_pos = line.lower().find(keyword)
+            if keyword_pos != -1:
+                return keyword_pos + len(keyword)
+        
+        return 0
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.CONDITION_MISSING_PARENTHESIS))
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Если есть подсказка в карте подсказок, добавляем её
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class ConditionEmptyExpressionError(DSLSyntaxError):
+    """Ошибка: не найдено логическое выражение внутри условной конструкции"""
+    
+    def __init__(self, line: str, line_num: int, position: Optional[int] = None):
+        super().__init__(ErrorType.CONDITION_EMPTY_EXPRESSION, line, line_num, position)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Находим позицию внутри скобок
+        open_paren_pos = line.find("(")
+        close_paren_pos = line.find(")")
+        
+        if open_paren_pos != -1 and close_paren_pos != -1 and open_paren_pos < close_paren_pos:
+            return open_paren_pos + 1
+        
+        return 0
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке"""
+        # Получаем соответствующее сообщение об ошибке
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.CONDITION_EMPTY_EXPRESSION))
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Если есть подсказка в карте подсказок, добавляем её
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
+class ConditionInvalidError(DSLSyntaxError):
+    """Ошибка: недопустимое или неправильное условное выражение"""
+    
+    def __init__(self, line: str, line_num: int, message: str, position: Optional[int] = None):
+        self.custom_message = message
+        super().__init__(ErrorType.CONDITION_INVALID, line, line_num, position)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Находим позицию IF
+        if_pos = line.lower().find("if")
+        if if_pos != -1:
+            return if_pos
+        return 0
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке с кастомным сообщением"""
+        # Используем пользовательское сообщение
+        message = self.custom_message
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Если есть подсказка в карте подсказок, добавляем её
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result) 
