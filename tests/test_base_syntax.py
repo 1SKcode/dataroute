@@ -3,156 +3,15 @@ from dataroute import DataRoute
 from dataroute.localization import Messages
 
 
-class TestBaseSyntax:
-    """Тесты на проверку базового синтаксиса DSL"""
+class TestBaseDSL:
 
     @staticmethod
     def get_message(message_dict, lang="ru"):
         """Вспомогательная функция для получения локализованного сообщения"""
         return message_dict.get(lang, message_dict.get("ru", ""))
-
-    @pytest.mark.parametrize(
-        "test_case, error_msg, hint_msg", 
-        [
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA]  [pointB](str)
-                """, 
-                Messages.Error.FLOW_DIRECTION,
-                Messages.Hint.USE_FLOW_SYMBOL
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] > [pointB](str)
-                    [pointC] [pointD](int)
-                """, 
-                Messages.Error.FLOW_DIRECTION,
-                Messages.Hint.USE_FLOW_SYMBOL
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> |*func1 -> [pointB](str)
-                """, 
-                Messages.Error.PIPELINE_CLOSING_BAR,
-                Messages.Hint.ADD_CLOSING_BAR
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> |*func1|*func2|*func3 -> [pointB](str)
-                """, 
-                Messages.Error.PIPELINE_CLOSING_BAR,
-                Messages.Hint.ADD_CLOSING_BAR
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA -> [pointB](str)
-                """, 
-                Messages.Error.BRACKET_MISSING,
-                Messages.Hint.CHECK_BRACKETS
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    pointA] -> [pointB](str)
-                """, 
-                Messages.Error.BRACKET_MISSING,
-                Messages.Hint.CHECK_BRACKETS
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> pointB](str)
-                """, 
-                Messages.Error.BRACKET_MISSING,
-                Messages.Hint.CHECK_BRACKETS
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB(str)
-                """, 
-                Messages.Error.BRACKET_MISSING,
-                Messages.Hint.CHECK_BRACKETS
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB]
-                """, 
-                Messages.Error.FINAL_TYPE,
-                Messages.Hint.SPECIFY_TYPE
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB](
-                """, 
-                Messages.Error.FINAL_TYPE,
-                Messages.Hint.SPECIFY_TYPE
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB])
-                """, 
-                Messages.Error.FINAL_TYPE,
-                Messages.Hint.SPECIFY_TYPE
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB](str
-                """, 
-                Messages.Error.FINAL_TYPE,
-                Messages.Hint.SPECIFY_TYPE
-            ),
-            (
-                """
-                source=dict
-                target1=dict("target_new")
-                target1:
-                    [pointA] -> [pointB](bool(
-                """, 
-                Messages.Error.FINAL_TYPE,
-                Messages.Hint.SPECIFY_TYPE
-            )
-        ],
-        ids=["missing_direction1", "missing_direction2",
-            "missing_pipeline_closing_bar1", "missing_pipeline_closing_bar2", 
-            "bracket_missing1", "bracket_missing2", "bracket_missing3", "bracket_missing4",
-            "final_type1", "final_type2", "final_type3", "final_type4", "final_type5"]
-    )
-    def test_dsl_errors(self, capsys, test_case, error_msg, hint_msg):
-        """Тест на различные вариации ошибок в DSL"""
+    
+    def run_test(self, capsys, test_case, error_msg, hint_msg):
+        """Общий метод для запуска и проверки тестов с ошибками DSL"""
         # Получаем ожидаемые сообщения на русском
         expected_error = self.get_message(error_msg, "ru")
         expected_hint = self.get_message(hint_msg, "ru")
@@ -170,14 +29,202 @@ class TestBaseSyntax:
         captured = capsys.readouterr()
         output = captured.out + captured.err
         
-        # Выводим захваченный вывод для отладки
-        print("\n----- Вывод программы: -----")
-        print(output)
-        print("----- Конец вывода -----\n")
-        
         # Проверяем наличие сообщения об ошибке и подсказки
         assert expected_error in output, f"Ожидаемое сообщение об ошибке не найдено: {expected_error}"
         assert expected_hint in output, f"Ожидаемая подсказка не найдена: {expected_hint}"
+
+
+class TestFlowDirection(TestBaseDSL):
+    """Направление потока"""
+    
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "missing_arrow",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA]  [pointB](str)
+            """
+        ),
+        (
+            "invalid_arrow",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] > [pointB](str)
+                [pointC] [pointD](int)
+            """
+        ),
+    ])
+    def test_flow_direction_errors(self, capsys, test_id, test_case):
+        """Направление потока в DSL"""
+        self.run_test(
+            capsys, 
+            test_case, 
+            Messages.Error.FLOW_DIRECTION,
+            Messages.Hint.USE_FLOW_SYMBOL
+        )
+
+
+class TestPipelineSyntax(TestBaseDSL):
+    """Pipeline"""
+    
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "missing_closing_bar_single",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> |*func1 -> [pointB](str)
+            """
+        ),
+        (
+            "missing_closing_bar_multiple",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> |*func1|*func2|*func3 -> [pointB](str)
+            """
+        ),
+    ])
+    def test_pipeline_errors(self, capsys, test_id, test_case):
+        """pipeline в DSL"""
+        self.run_test(
+            capsys, 
+            test_case, 
+            Messages.Error.PIPELINE_CLOSING_BAR,
+            Messages.Hint.ADD_CLOSING_BAR
+        )
+
+
+class TestBracketSyntax(TestBaseDSL):
+    """Скобки"""
+    
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "missing_closing_point_bracket",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA -> [pointB](str)
+            """
+        ),
+        (
+            "missing_opening_point_bracket",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                pointA] -> [pointB](str)
+            """
+        ),
+        (
+            "missing_opening_target_bracket",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> pointB](str)
+            """
+        ),
+        (
+            "missing_closing_type_bracket",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB(str)
+            """
+        ),
+    ])
+    def test_bracket_errors(self, capsys, test_id, test_case):
+        """Тест на ошибки в скобках в DSL"""
+        self.run_test(
+            capsys, 
+            test_case, 
+            Messages.Error.BRACKET_MISSING,
+            Messages.Hint.CHECK_BRACKETS
+        )
+
+
+class TestTypeSyntax(TestBaseDSL):
+    """Типы"""
+    
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "missing_type",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB]
+            """
+        ),
+        (
+            "empty_type_open",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB](
+            """
+        ),
+        (
+            "empty_type_close",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB])
+            """
+        ),
+        (
+            "incomplete_type",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB](str
+            """
+        ),
+        (
+            "malformed_complex_type",
+            """
+            source=dict
+            target1=dict("target_new")
+            target1:
+                [pointA] -> [pointB](bool(
+            """
+        ),
+        (
+            "pipeline_missing_type",
+            """
+            source=dict
+            target1=dict("target_new")
+            $var1 = "test"
+
+            target1:
+                [pointA] -> |*func1($var1)| -> [pointB]
+            """
+        ),
+    ])
+    def test_type_errors(self, capsys, test_id, test_case):
+        """Типы в DSL"""
+        self.run_test(
+            capsys, 
+            test_case, 
+            Messages.Error.FINAL_TYPE,
+            Messages.Hint.SPECIFY_TYPE
+        )
+
+
+class TestExamples(TestBaseDSL):
+    """Примеры и демонстрация вывода"""
 
     def test_show_actual_error_example(self, capsys):
         """Тест для демонстрации фактического вывода программы"""
@@ -200,6 +247,4 @@ class TestBaseSyntax:
         print("===== ВЫВОД ОШИБОК =====")
         print(captured.err)
         print("===== КОНЕЦ ВЫВОДА =====")
-        
-        # Этот тест всегда проходит, его цель - просто показать вывод
         assert True
