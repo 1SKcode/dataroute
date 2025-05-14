@@ -11,7 +11,7 @@ setuptools.setup(
     description="ETL platform with its own dtrt language for describing ETL data routes between different sources",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/1SKcode/dataroute",
+    url="",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
