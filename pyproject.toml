@@ -17,8 +17,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/1SKcode/dataroute"
-BugTracker = "https://github.com/1SKcode/dataroute/issues"
+Homepage = ""
+BugTracker = ""
 
 [tool.setuptools]
 package-dir = {"" = "src"}
