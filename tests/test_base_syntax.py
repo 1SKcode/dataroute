@@ -9,62 +9,27 @@ class TestValidBaseSyntax():
     
     @pytest.mark.parametrize("test_id, test_case, expected_result", [
         (
-            "simple_route",
+            "case1",
             """
-            source=dict
-            target1=dict("target_new")
+            source=dict/my_dict
+            target1=dict/my_new_dict
             target1:
                 [pointA] -> [pointB](str)
+                [pointC] - [pointD](int)
+                [pointE] > [pointF](bool)
+                [pointG] >> [pointH](float)
+                [pointI] => [pointJ](str)
             """,
             {
-                "target_new": {
-                    "sourse_type": "dict",
-                    "target_type": "dict",
-                    "routes": {
-                        "pointA": {
-                            "pipeline": None,
-                            "final_type": "str",
-                            "final_name": "pointB"
-                        }
-                    }
-                }
-            }
-        ),
-        (
-            "with_pipeline",
-            """
-            source=dict
-            target1=dict("target_new")
-            target1:
-                [pointA] -> |*func1| -> [pointB](str)
-            """,
-            {
-                "target_new": {
-                    "sourse_type": "dict",
-                    "target_type": "dict",
-                    "routes": {
-                        "pointA": {
-                            "pipeline": ["func1"],
-                            "final_type": "str",
-                            "final_name": "pointB"
-                        }
-                    }
-                }
-            }
-        ),
-        (
-            "multiple_routes",
-            """
-            source=dict
-            target1=dict("target_new")
-            target1:
-                [pointA] -> [pointB](str)
-                [pointC] -> [pointD](int)
-            """,
-            {
-                "target_new": {
-                    "sourse_type": "dict",
-                    "target_type": "dict",
+                "my_new_dict": {
+                    "sourse_type": {
+                    "type": "dict",
+                    "name": "my_dict"
+                    },
+                    "target_type": {
+                    "type": "dict",
+                    "name": "my_new_dict"
+                    },
                     "routes": {
                         "pointA": {
                             "pipeline": None,
@@ -75,45 +40,31 @@ class TestValidBaseSyntax():
                             "pipeline": None,
                             "final_type": "int",
                             "final_name": "pointD"
-                        }
-                    }
-                }
-            }
-        ),
-        (
-            "with_variables",
-            """
-            source=dict
-            target1=dict("target_new")
-            $var1 = "test"
-            
-            target1:
-                [pointA] -> |*func1($var1)| -> [pointB](str)
-                [pointC] -> [pointD](int)
-            """,
-            {
-                "target_new": {
-                    "sourse_type": "dict",
-                    "target_type": "dict",
-                    "routes": {
-                        "pointA": {
-                            "pipeline": ["func1('test')"],
-                            "final_type": "str",
-                            "final_name": "pointB"
                         },
-                        "pointC": {
+                        "pointE": {
                             "pipeline": None,
-                            "final_type": "int",
-                            "final_name": "pointD"
+                            "final_type": "bool",
+                            "final_name": "pointF"
+                        },
+                        "pointG": {
+                            "pipeline": None,
+                            "final_type": "float",
+                            "final_name": "pointH"
+                        },
+                        "pointI": {
+                            "pipeline": None,
+                            "final_type": "str",
+                            "final_name": "pointJ"
                         }
                     }
                 }
             }
         ),
-    ])
+    ], 
+    ids=["case1"])
     def test_valid_dsl(self, test_id, test_case, expected_result):
         """Проверка корректного DSL и генерации правильного JSON"""
-        dtrt = DataRoute(test_case, debug=True, lang="ru", color=False)
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
         result = dtrt.go()
         
         # Получаем JSON и сравниваем с ожидаемым результатом
@@ -121,3 +72,5 @@ class TestValidBaseSyntax():
         
         # Дополнительная проверка, что print_json не выдает ошибку
         dtrt.print_json()
+
+

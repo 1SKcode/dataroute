@@ -28,7 +28,7 @@ class Messages:
         SEMANTIC_TARGET = {"ru": ">R<Ошибка в определении цели>RS<", "en": ">R<Error in target definition>RS<"}
         SEMANTIC_ROUTES = {"ru": ">R<Ошибка в определении маршрутов>RS<", "en": ">R<Error in route definitions>RS<"}
         PIPELINE_EMPTY = {"ru": ">R<Пустой пайплайн обнаружен>RS<", "en": ">R<Empty pipeline detected>RS<"}
-        UNKNOWN = {"ru": ">R<Неизвестная синтаксическая ошибка>RS<", "en": ">R<Unknown syntax error>RS<"}
+        UNKNOWN = {"ru": ">R<Неожиданный токен в коде. Проверьте синтаксис>RS<", "en": ">R<Unexpected token in code. Check syntax>RS<"}
         GENERIC = {"ru": ">R<Ошибка при обработке DSL:>RS< {message}", "en": ">R<Error processing DSL:>RS< {message}"}
         LINE_PREFIX = {"ru": ">R<Ошибка в строке {line_num}:>RS<", "en": ">R<Error in line {line_num}:>RS<"}
         FILE_NOT_FOUND = {"ru": ">R<Файл не найден:>RS< {file}. {message}", "en": ">R<File not found:>RS< {file}. {message}"}
@@ -40,11 +40,13 @@ class Messages:
         UNDEFINED_VAR = {"ru": ">R<Переменная '${var_name}' не определена в текущем контексте>RS<", "en": ">R<Variable '${var_name}' is not defined in current context>RS<"}
         INVALID_VAR_USAGE = {"ru": ">R<Некорректное использование переменной '${var_name}'>RS<", "en": ">R<Invalid usage of variable '${var_name}'>RS<"}
         SRC_FIELD_AS_VAR = {"ru": ">R<Поле из левой части '${var_name}' нельзя использовать как переменную>RS<", "en": ">R<Source field '${var_name}' cannot be used as a variable>RS<"}
+        INVALID_TYPE = {"ru": ">R<Неверный тип данных: {data_type}>RS<", "en": ">R<Invalid data type: {data_type}>RS<"}
         CONDITION_MISSING_IF = {"ru": ">R<В выражении может быть только if, но не может быть else без if>RS<", "en": ">R<Expression can only have if, but cannot have else without if>RS<"}
         CONDITION_MISSING_PARENTHESIS = {"ru": ">R<Условная конструкция должна содержать знак скобок>RS<", "en": ">R<Conditional construction must contain parentheses>RS<"}
         CONDITION_EMPTY_EXPRESSION = {"ru": ">R<Не найдено логическое выражение внутри условной конструкции>RS<", "en": ">R<No logical expression found inside conditional construction>RS<"}
         CONDITION_MISSING_COLON = {"ru": ">R<Не найден знак завершения условного выражения (:)>RS<", "en": ">R<Closing symbol (:) of the conditional expression not found>RS<"}
         CONDITION_INVALID = {"ru": ">R<Недопустимое или неправильное условное выражение>RS<", "en": ">R<Invalid or incorrect conditional expression>RS<"}
+        DUPLICATE_FINAL_NAME = {"ru": ">R<Дублирующееся имя финальной цели:>RS< {final_name}", "en": ">R<Duplicate final target name:>RS< {final_name}"}
 
     class Hint:
         LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
@@ -54,10 +56,10 @@ class Messages:
         SPECIFY_TYPE = {"ru": "Укажите тип в круглых скобках: [field](type)", "en": "Specify type in parentheses: [field](type)"}
         VOID_NO_TYPE = {"ru": "Для пустого поля [] не нужно указывать тип", "en": "Empty field [] must not have a type specifier"}
         SOURCE_SYNTAX = {"ru": "Используйте source=type", "en": "Use source=type"}
-        TARGET_SYNTAX = {"ru": "Используйте target=type(\"value\")", "en": "Use target=type(\"value\")"}
+        TARGET_SYNTAX = {"ru": "Используйте target=type/имя", "en": "Use target=type/name"}
         PIPELINE_MUST_HAVE_CONTENT = {"ru": "Пайплайн должен содержать хотя бы один символ между вертикальными чертами", "en": "Pipeline must contain at least one character between vertical bars"}
         SEQUENTIAL_PIPELINES = {"ru": "Обнаружены последовательные пайплайны без данных между ними", "en": "Sequential pipelines detected without data between them"}
-        TARGET_DEFINITION_MISSING = {"ru": "Не найдено определение цели для маршрута {target}", "en": "Target definition not found for route {target}"}
+        TARGET_DEFINITION_MISSING = {"ru": "Определена карта маршрута {target}, но нет определения цели для этого маршрута\nИспользуйте {target}=type/имя", "en": "Route {target} is defined, but no target definition is found for it\nUse {target}=type/name"}
         ROUTES_MISSING = {"ru": "Отсутствуют определения маршрутов (target:)", "en": "Route definitions are missing (target:)"}
         FILE_NOT_FOUND = {"ru": "Проверьте корректность пути к файлу: {file}", "en": "Check the file path: {file}"}
         DUPLICATE_VAR = {"ru": "Переменная уже определена на строке {first_pos}", "en": "Variable is already defined at line {first_pos}"}
@@ -68,11 +70,13 @@ class Messages:
         UNDEFINED_VAR = {"ru": "Переменная должна быть определена перед использованием. Пример: [field] -> |*func| -> [$var_name](type)", "en": "Variable must be defined before usage. Example: [field] -> |*func| -> [$var_name](type)"}
         INVALID_VAR_USAGE = {"ru": "В пайплайне до определения результата можно использовать только переменные с префиксом $^", "en": "Only variables with $^ prefix can be used in pipeline before result definition"}
         SRC_FIELD_AS_VAR = {"ru": "Создайте отдельный маршрут для сохранения поля в переменную: [field] -> [$var_field](type), затем используйте $var_field", "en": "Create a separate route to save the field as a variable: [field] -> [$var_field](type), then use $var_field"}
+        INVALID_TYPE = {"ru": "Используйте один из разрешённых типов данных: {allowed_types}", "en": "Use one of the allowed data types: {allowed_types}"}
         CONDITION_MISSING_IF = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         CONDITION_MISSING_PARENTHESIS = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         CONDITION_EMPTY_EXPRESSION = {"ru": "Добавьте логическое выражение внутрь условной конструкции IF(услвие). используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Add logical expression inside conditional construction IF(condition). Use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         CONDITION_MISSING_COLON = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         CONDITION_INVALID = {"ru": "Проверьте правильность условного выражения и используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Check the correctness of the conditional expression and use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
+        DUPLICATE_FINAL_NAME = {"ru": "Цель уже используется для записи. Проверьте уникальность имени.", "en": "Target is already used for writing. Check name uniqueness."}
     class Debug:
         PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
         ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}

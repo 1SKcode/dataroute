@@ -187,12 +187,10 @@ class JSONGenerator(ASTVisitor):
     def visit_route_block(self, node):
         """Обход блока маршрутов"""
         target_name = node.target_name
-        # Получаем инфу о таргете
         target_node = self.target_info_map.get(target_name)
         if target_node:
             target_key = target_node.value
             self.target_name_map[target_name] = target_key
-            # Если ключа ещё нет, создаём его (в нужном порядке)
             if target_key not in self.result:
                 self.result[target_key] = {
                     "sourse_type": self.source_type,
@@ -201,10 +199,8 @@ class JSONGenerator(ASTVisitor):
                 }
             self.current_target = target_key
         else:
-            # Фоллбек, если вдруг не нашли
             self.current_target = target_name
         pr(M.Debug.ROUTE_PROCESSING, target=self.current_target)
-        # Обрабатываем все маршруты
         for route in node.routes:
             route.accept(self)
     
@@ -214,13 +210,20 @@ class JSONGenerator(ASTVisitor):
         src_field = node.src_field.accept(self)
         pipeline = node.pipeline.accept(self)
         
-        # Проверяем наличие целевого поля
+        # Определяем, что делать с целевым полем
         if node.target_field:
+            # Получаем информацию о целевом поле
             target_field, target_field_type = node.target_field.accept(self)
+            
+            # Важно! Проверяем случай пустого поля []
+            if node.target_field.name == "":
+                # Если целевое поле - пустые скобки [], оба значения должны быть null
+                target_field = None
+                target_field_type = None
         else:
-            # Если целевое поле не указано совсем, используем исходное
-            target_field = src_field
-            target_field_type = "str"
+            # Если целевого поля вообще нет в маршруте, значения должны быть null
+            target_field = None
+            target_field_type = None
         
         # Для пустого исходного поля создаем специальный ключ
         route_key = src_field if src_field else self._get_void_key()
@@ -253,6 +256,11 @@ class JSONGenerator(ASTVisitor):
     
     def visit_field_dst(self, node):
         """Обход целевого поля"""
+        # Если имя поля пустое (пустое поле []), возвращаем None для имени и типа
+        if node.name == "":
+            return None, None
+        
+        # Для обычных полей возвращаем имя и тип
         return node.name, node.type_name
     
     def visit_func_call(self, node):

@@ -59,7 +59,8 @@ class ErrorType(Enum):
     UNDEFINED_VAR = auto()         # Неопределенная переменная
     INVALID_VAR_USAGE = auto()     # Неверное использование переменной
     SRC_FIELD_AS_VAR = auto()      # Использование поля из левой части как переменной
-    # Новые типы ошибок для условных конструкций
+    INVALID_TYPE = auto()          # Неверный тип данных
+    DUPLICATE_FINAL_NAME = auto()  # Дублирующееся имя финальной цели
     CONDITION_MISSING_IF = auto()  # В выражении может быть только if, но не может быть else без if
     CONDITION_MISSING_PARENTHESIS = auto()  # Условная конструкция должна содержать знак скобок
     CONDITION_EMPTY_EXPRESSION = auto()  # Не найдено логическое выражение внутри условной конструкции
@@ -91,7 +92,8 @@ ERROR_MESSAGE_MAP = {
     ErrorType.UNDEFINED_VAR: M.Error.UNDEFINED_VAR,
     ErrorType.INVALID_VAR_USAGE: M.Error.INVALID_VAR_USAGE,
     ErrorType.SRC_FIELD_AS_VAR: M.Error.SRC_FIELD_AS_VAR,
-    # Новые сообщения для условных конструкций
+    ErrorType.INVALID_TYPE: M.Error.INVALID_TYPE,
+    ErrorType.DUPLICATE_FINAL_NAME: M.Error.DUPLICATE_FINAL_NAME,
     ErrorType.CONDITION_MISSING_IF: M.Error.CONDITION_MISSING_IF,
     ErrorType.CONDITION_MISSING_PARENTHESIS: M.Error.CONDITION_MISSING_PARENTHESIS,
     ErrorType.CONDITION_EMPTY_EXPRESSION: M.Error.CONDITION_EMPTY_EXPRESSION,
@@ -116,7 +118,8 @@ ERROR_HINT_MAP = {
     ErrorType.UNDEFINED_VAR: M.Hint.UNDEFINED_VAR,
     ErrorType.INVALID_VAR_USAGE: M.Hint.INVALID_VAR_USAGE,
     ErrorType.SRC_FIELD_AS_VAR: M.Hint.SRC_FIELD_AS_VAR,
-    # Новые подсказки для условных конструкций
+    ErrorType.INVALID_TYPE: M.Hint.INVALID_TYPE,
+    ErrorType.DUPLICATE_FINAL_NAME: M.Hint.DUPLICATE_FINAL_NAME,
     ErrorType.CONDITION_MISSING_IF: M.Hint.CONDITION_MISSING_IF,
     ErrorType.CONDITION_MISSING_PARENTHESIS: M.Hint.CONDITION_MISSING_PARENTHESIS,
     ErrorType.CONDITION_EMPTY_EXPRESSION: M.Hint.CONDITION_EMPTY_EXPRESSION,
@@ -130,11 +133,11 @@ ERROR_HINT_MAP = {
 # ==============================================================
 
 PATTERNS = {
-    # Определение источника: source=dict
-    TokenType.SOURCE: r'source\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)',
+    # Определение источника: source=тип/путь
+    TokenType.SOURCE: r'source\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\/([^\s]+)$',
     
-    # Определение цели: target1=dict("target1")
-    TokenType.TARGET: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*)\)',
+    # Определение цели: target1=тип/имя_или_путь
+    TokenType.TARGET: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)\/([^\s]+)$',
     
     # Заголовок маршрута: target1:
     TokenType.ROUTE_HEADER: r'([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
@@ -146,5 +149,28 @@ PATTERNS = {
     TokenType.COMMENT: r'#(.*)',
     
     # Строка маршрута с отступом: [id] -> |*s1| -> [external_id](str))
-    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>)\s*)?\[([$a-zA-Z0-9_]*)\](?:\(([a-zA-Z0-9_]+)\))?'
+    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>|>>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>|>>)\s*)?\[([$a-zA-Z0-9_]*)\](?:\(([a-zA-Z0-9_]+)\))?'
 } 
+
+# ==============================================================
+# РАЗРЕШЕННЫЕ ТИПЫ ДАННЫХ
+# ==============================================================
+
+# Список разрешенных типов данных в DSL
+ALLOWED_TYPES = [
+    "str",      # Строка
+    "int",      # Целое число
+    "float",    # Число с плавающей точкой
+    "bool",     # Логическое значение
+    "dict",     # Словарь
+    "list",     # Список
+    "tuple",    # Кортеж
+    "set",      # Множество
+    "datetime", # Дата и время
+    "date",     # Дата
+    "time",     # Время
+    "Decimal",  # Десятичное число
+    "uuid",     # UUID
+    "bytes",    # Бинарные данные
+    "any"       # Любой тип
+] 

@@ -2,7 +2,7 @@ import re
 import sys
 from typing import Optional
 
-from .constants import ErrorType, ERROR_MESSAGE_MAP, ERROR_HINT_MAP
+from .constants import ErrorType, ERROR_MESSAGE_MAP, ERROR_HINT_MAP, ALLOWED_TYPES
 from .localization import Localization, Messages
 from .config import Config
 
@@ -15,7 +15,8 @@ class DSLSyntaxError(Exception):
                  line: str,
                  line_num: int,
                  position: Optional[int] = None,
-                 suggestion: Optional[str] = None):
+                 suggestion: Optional[str] = None,
+                 **kwargs):
         self.error_type = error_type
         self.line = line
         self.line_num = line_num
@@ -23,6 +24,7 @@ class DSLSyntaxError(Exception):
         self.suggestion = suggestion
         self.lang = Config.get_lang()
         self.loc = Localization(self.lang)
+        self.format_kwargs = kwargs or {}
         
         # Формируем сообщение об ошибке
         message = self._format_error_message()
@@ -35,7 +37,7 @@ class DSLSyntaxError(Exception):
     def _format_error_message(self) -> str:
         """Форматирует сообщение об ошибке"""
         # Получаем соответствующее сообщение об ошибке
-        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN))
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN), **self.format_kwargs)
         
         # Форматируем строку с указателем на позицию ошибки
         pointer = " " * self.position + "^"
@@ -54,7 +56,8 @@ class DSLSyntaxError(Exception):
         # Иначе пробуем использовать стандартную подсказку для данного типа ошибки
         elif ERROR_HINT_MAP.get(self.error_type):
             hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type), 
-                                target=self.line if self.error_type == ErrorType.SEMANTIC_TARGET else None)
+                                target=self.line if self.error_type == ErrorType.SEMANTIC_TARGET else None,
+                                **self.format_kwargs)
             if hint:
                 hint_label = self.loc.get(Messages.Hint.LABEL)
                 result.append(f"{hint_label} {hint}")
@@ -134,6 +137,13 @@ class SyntaxErrorHandler:
             last_bracket_pos = line.rfind(']')
             if last_bracket_pos != -1:
                 after_bracket = line[last_bracket_pos:]
+                
+                # Проверка на неверный тип данных
+                type_match = re.search(r'\(([a-zA-Z0-9_]+)\)', after_bracket)
+                if type_match:
+                    data_type = type_match.group(1)
+                    if data_type not in ALLOWED_TYPES:
+                        return InvalidTypeError(line, line_num, data_type, last_bracket_pos + after_bracket.find('(') + 1)
                 
                 # Если после скобки есть текст, но нет открывающей скобки типа или тип пустой ()
                 if '(' in after_bracket and ')' in after_bracket and \
@@ -283,6 +293,47 @@ class FinalTypeError(DSLSyntaxError):
         return len(line) - 1
 
 
+class InvalidTypeError(DSLSyntaxError):
+    """Ошибка неверного типа данных"""
+    
+    def __init__(self, line: str, line_num: int, data_type: str, position: Optional[int] = None):
+        self.data_type = data_type
+        super().__init__(ErrorType.INVALID_TYPE, line, line_num, position, None)
+    
+    def _guess_error_position(self, line: str) -> int:
+        # Ищем позицию типа данных в скобках
+        type_pattern = r'\(' + self.data_type + r'\)'
+        type_match = re.search(type_pattern, line)
+        if type_match:
+            return type_match.start() + 1
+        return super()._guess_error_position(line)
+    
+    def _format_error_message(self) -> str:
+        """Форматирует сообщение об ошибке с указанием недопустимого типа данных"""
+        # Получаем сообщение об ошибке с передачей типа данных в качестве параметра
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.UNKNOWN), 
+                              data_type=self.data_type)
+        
+        # Форматируем строку с указателем на позицию ошибки
+        pointer = " " * self.position + "^"
+        
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        
+        # Добавляем подсказку для этого типа ошибки
+        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type), 
+                           allowed_types=", ".join(ALLOWED_TYPES))
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
+        
+        return "\n".join(result)
+
+
 class PipelineEmptyError(DSLSyntaxError):
     """Ошибка пустого пайплайна"""
     
@@ -298,10 +349,10 @@ class PipelineEmptyError(DSLSyntaxError):
 
 
 class VoidTypeError(DSLSyntaxError):
-    """Ошибка указания типа для void-поля"""
+    """Ошибка указания типа для пустого поля"""
     
     def __init__(self, line: str, line_num: int, position: Optional[int] = None):
-        # Будем использовать тип ошибки FINAL_TYPE, но с особой подсказкой
+        # Будем использовать тип ошибки VOID_TYPE
         super().__init__(ErrorType.VOID_TYPE, line, line_num, position, None)
         # Заменяем стандартную подсказку на специальную для void-поля
         self.suggestion = self.loc.get(Messages.Hint.VOID_NO_TYPE)
@@ -310,12 +361,12 @@ class VoidTypeError(DSLSyntaxError):
         # Ищем позицию после пустых квадратных скобок []
         empty_bracket_match = re.search(r'\[\]\s*\(', line)
         if empty_bracket_match:
-            return empty_bracket_match.start() + 2
+            return empty_bracket_match.end() - 1  # Позиция на открывающей скобке (
         # Если не нашли, используем последнюю ]
         last_bracket_pos = line.rfind(']')
         if last_bracket_pos != -1:
             return last_bracket_pos + 1
-        return len(line) - 1 
+        return len(line) - 1
 
 
 class UnknownPipelineSegmentError(DSLSyntaxError):

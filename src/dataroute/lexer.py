@@ -3,8 +3,8 @@ import sys
 from dataclasses import dataclass
 from typing import List, Any, Optional
 
-from .constants import PATTERNS, TokenType
-from .errors import SyntaxErrorHandler, PipelineEmptyError
+from .constants import PATTERNS, TokenType, ALLOWED_TYPES
+from .errors import SyntaxErrorHandler, PipelineEmptyError, InvalidTypeError
 from .localization import Localization, Messages as M
 from .config import Config
 from .mess_core import pr
@@ -42,6 +42,8 @@ class Lexer:
         
         pr(M.Debug.TOKENIZATION_START)
         
+        source_found = False
+        
         for line_num, line in enumerate(lines, 1):
             original_line = line
             line = line.strip()
@@ -57,26 +59,78 @@ class Lexer:
             # Анализируем строку на соответствие шаблонам
             matched = False
             
-            # Определение источника (sourse=dict)
+            # Определение источника (source=тип/путь)
             if not matched:
                 match = re.match(PATTERNS[TokenType.SOURCE], line)
                 if match:
-                    self.tokens.append(Token(TokenType.SOURCE, match.group(1), line_num))
-                    pr(M.Debug.TOKEN_CREATED, type=TokenType.SOURCE.name, value=match.group(1))
+                    source_found = True
+                    source_type = match.group(1)
+                    source_name = match.group(2)
+                    if not source_type or not source_name:
+                        from .errors import DSLSyntaxError
+                        from .constants import ErrorType
+                        error = DSLSyntaxError(
+                            ErrorType.SYNTAX_SOURCE,
+                            original_line,
+                            line_num,
+                            line.find('source'),
+                            self.loc.get(M.Hint.SOURCE_SYNTAX)
+                        )
+                        pr(str(error))
+                        sys.exit(1)
+                    self.tokens.append(Token(TokenType.SOURCE, {"type": source_type, "name": source_name}, line_num))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.SOURCE.name, value={"type": source_type, "name": source_name})
                     matched = True
             
-            # Определение цели (target1=dict("target1"))
+            # Если строка начинается с source=, но не проходит паттерн — это тоже ошибка синтаксиса источника
+            if not matched and line.startswith('source='):
+                from .errors import DSLSyntaxError
+                from .constants import ErrorType
+                error = DSLSyntaxError(
+                    ErrorType.SYNTAX_SOURCE,
+                    original_line,
+                    line_num,
+                    line.find('source'),
+                    self.loc.get(M.Hint.SOURCE_SYNTAX)
+                )
+                pr(str(error))
+                sys.exit(1)
+            
+            # Определение цели (targetN=тип/имя_или_путь)
             if not matched:
                 match = re.match(PATTERNS[TokenType.TARGET], line)
                 if match:
-                    target_info = {
-                        'name': match.group(1),
-                        'type': match.group(2),
-                        'value': self._strip_quotes(match.group(3)) 
-                    }
-                    self.tokens.append(Token(TokenType.TARGET, target_info, line_num))
-                    pr(M.Debug.TOKEN_CREATED, type=TokenType.TARGET.name, value=target_info)
+                    target_name = match.group(1)
+                    target_type = match.group(2)
+                    target_value = match.group(3)
+                    if not target_type or not target_value:
+                        from .errors import DSLSyntaxError
+                        from .constants import ErrorType
+                        error = DSLSyntaxError(
+                            ErrorType.SYNTAX_TARGET,
+                            original_line,
+                            line_num,
+                            line.find(target_name),
+                            self.loc.get(M.Hint.TARGET_SYNTAX)
+                        )
+                        pr(str(error))
+                        sys.exit(1)
+                    self.tokens.append(Token(TokenType.TARGET, {"name": target_name, "type": target_type, "value": target_value}, line_num))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.TARGET.name, value={"name": target_name, "type": target_type, "value": target_value})
                     matched = True
+            # Если строка похожа на targetN=... (имя=...), но не проходит паттерн — ошибка SYNTAX_TARGET
+            if not matched and re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*=.*$', line):
+                from .errors import DSLSyntaxError
+                from .constants import ErrorType
+                error = DSLSyntaxError(
+                    ErrorType.SYNTAX_TARGET,
+                    original_line,
+                    line_num,
+                    line.find('='),
+                    self.loc.get(M.Hint.TARGET_SYNTAX)
+                )
+                pr(str(error))
+                sys.exit(1)
             
             # Глобальная переменная ($myVar = "value")
             if not matched:
@@ -135,11 +189,34 @@ class Lexer:
             # Строка маршрута с отступом
             match = re.match(PATTERNS[TokenType.ROUTE_LINE], original_line)
             if match:
+                # Получаем тип данных из маршрута
+                target_field_type = match.group(4)
+                
+                # Проверка типа данных, если он указан
+                if target_field_type and target_field_type not in ALLOWED_TYPES:
+                    # Определяем позицию ошибки в строке - находим позицию типа в скобках
+                    type_position = original_line.find(f"({target_field_type})")
+                    if type_position == -1:
+                        type_position = original_line.rfind(")") - len(target_field_type) - 1
+                    
+                    # Создаем ошибку с указанием некорректного типа
+                    error = InvalidTypeError(
+                        original_line, 
+                        line_num, 
+                        target_field_type, 
+                        type_position
+                    )
+                    pr(str(error))
+                    sys.exit(1)
+                
+                # Получаем целевое поле и очищаем от пробелов
+                target_field = match.group(3).strip()
+                
                 route_info = {
                     'src_field': match.group(1),
                     'pipeline': match.group(2),
-                    'target_field': match.group(3),
-                    'target_field_type': match.group(4),
+                    'target_field': target_field,
+                    'target_field_type': target_field_type,
                     'line': original_line
                 }
                 self.tokens.append(Token(TokenType.ROUTE_LINE, route_info, line_num))
@@ -151,6 +228,19 @@ class Lexer:
                 # Выводим ошибку и прерываем выполнение
                 pr(str(error))
                 sys.exit(1)
+        
+        if not source_found:
+            from .errors import DSLSyntaxError
+            from .constants import ErrorType
+            error = DSLSyntaxError(
+                ErrorType.SYNTAX_SOURCE,
+                '',
+                1,
+                0,
+                self.loc.get(M.Hint.SOURCE_SYNTAX)
+            )
+            pr(str(error))
+            sys.exit(1)
         
         pr(M.Debug.TOKENIZATION_FINISH, count=len(self.tokens))
         

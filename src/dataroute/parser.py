@@ -53,7 +53,7 @@ class Parser:
             elif token.type == TokenType.TARGET:
                 target_node = TargetNode(
                     token.value['name'],
-                    token.value['type'],
+                    {"type": token.value['type'], "name": token.value['value']},
                     token.value['value']
                 )
                 self.ast.children.append(target_node)
@@ -94,18 +94,41 @@ class Parser:
             elif token.type == TokenType.ROUTE_HEADER:
                 target_name = token.value
                 self.position += 1
-                
                 # Проверяем, что существует целевой объект для этого маршрута
                 if not hasattr(self.ast, '_targets') or target_name not in self.ast._targets:
-                    self._error(f"Целевой объект '{target_name}' не определен")
-                
+                    from .errors import DSLSyntaxError
+                    from .constants import ErrorType
+                    from .localization import Messages
+                    raise DSLSyntaxError(
+                        ErrorType.SEMANTIC_TARGET,
+                        f"{target_name}:",
+                        token.position,
+                        0,
+                        self.loc.get(Messages.Hint.TARGET_DEFINITION_MISSING, target=target_name)
+                    )
                 # Получаем все маршруты для этой цели
                 routes = []
+                final_names = set()
                 while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
                     route_line_token = self.tokens[self.position]
-                    routes.append(self._parse_route_line(route_line_token))
+                    route_line = self._parse_route_line(route_line_token)
+                    # Проверка на дублирование финальной цели (без учёта $)
+                    norm_name = route_line.target_field.name.lstrip("$")
+                    if norm_name in final_names:
+                        from .errors import DSLSyntaxError
+                        from .constants import ErrorType
+                        from .localization import Messages
+                        raise DSLSyntaxError(
+                            ErrorType.DUPLICATE_FINAL_NAME,
+                            route_line_token.value['line'],
+                            route_line_token.position,
+                            0,
+                            None,
+                            final_name=route_line.target_field.name
+                        )
+                    final_names.add(norm_name)
+                    routes.append(route_line)
                     self.position += 1
-                
                 # Создаем блок маршрутов и добавляем в AST
                 route_block = RouteBlockNode(target_name, routes)
                 self.ast.children.append(route_block)
@@ -120,6 +143,7 @@ class Parser:
         """Создает узел источника данных"""
         token = self.tokens[self.position]
         self.position += 1
+        # Используем полное значение токена в качестве source_type
         return SourceNode(token.value)
     
     def _parse_target(self) -> TargetNode:
@@ -142,6 +166,14 @@ class Parser:
         target_field_name = route_info['target_field']
         target_field_type = route_info['target_field_type']
         
+        # Проверяем наличие типа у пустого поля
+        if target_field_name == "" and target_field_type:
+            # Если у пустого поля указан тип - выдаем ошибку VOID_TYPE
+            from .errors import VoidTypeError
+            error = VoidTypeError(original_line, line_num)
+            pr(str(error))
+            sys.exit(1)
+        
         # Проверяем наличие типа целевого поля (если поле не пустое)
         if target_field_name and not target_field_type:
             # Находим позицию для сообщения об ошибке - после последней скобки
@@ -151,10 +183,6 @@ class Parser:
                 error = FinalTypeError(original_line, line_num, target_field_pos + 1)
                 pr(str(error))
                 sys.exit(1)
-        
-        # Используем тип по умолчанию, если он не был указан
-        if target_field_type is None:
-            target_field_type = "str"
         
         # Создаем узел для исходного поля
         src_field = FieldSrcNode(src_field_name)
@@ -429,11 +457,6 @@ class Parser:
                 'line': line_num,
                 'context': condition
             })
-
-    def _error(self, message):
-        """Генерирует сообщение об ошибке и прерывает выполнение"""
-        pr(f"Ошибка парсинга: {message}", "red")
-        sys.exit(1)
 
     def _parse_pipeline_items(self, pipeline_str: str, original_line: str, line_num: int):
         """Парсит элементы конвейера обработки и сохраняет информацию о позиции"""
@@ -800,6 +823,37 @@ class Parser:
         raise ConditionInvalidError(original_line, line_num, 
                                    "Неизвестная конструкция условного выражения", 
                                    pipeline_start_pos)
+
+    def _parse_route_block(self) -> RouteBlockNode:
+        """Разбор блока маршрутов для одной цели с проверкой дублирования финальных целей"""
+        token = self.tokens[self.position]
+        target_name = token.value['name']
+        self.position += 1
+        routes = []
+        final_names = set()
+        while self.position < len(self.tokens) and self.tokens[self.position].type == TokenType.ROUTE_LINE:
+            route_line_token = self.tokens[self.position]
+            route_line = self._parse_route_line(route_line_token)
+            # Проверка на дублирование финальной цели (без учёта $)
+            norm_name = route_line.target_field.name.lstrip("$")
+            if norm_name in final_names:
+                from .errors import DSLSyntaxError
+                from .constants import ErrorType
+                from .localization import Messages
+                raise DSLSyntaxError(
+                    ErrorType.DUPLICATE_FINAL_NAME,
+                    route_line_token.value['line'],
+                    route_line_token.position,
+                    0,
+                    None,
+                    final_name=route_line.target_field.name
+                )
+            final_names.add(norm_name)
+            routes.append(route_line)
+            self.position += 1
+        route_block = RouteBlockNode(target_name, routes)
+        self.ast.children.append(route_block)
+        return route_block
 
 
 # Импортируем TokenType в конце файла, чтобы избежать циклических зависимостей
