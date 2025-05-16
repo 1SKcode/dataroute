@@ -5,6 +5,7 @@ from typing import Optional
 from .constants import ErrorType, ERROR_MESSAGE_MAP, ERROR_HINT_MAP, ALLOWED_TYPES
 from .localization import Localization, Messages
 from .config import Config
+from .mess_core import pr
 
 
 class DSLSyntaxError(Exception):
@@ -823,9 +824,9 @@ class ConditionEmptyExpressionError(DSLSyntaxError):
 class ConditionInvalidError(DSLSyntaxError):
     """Ошибка: недопустимое или неправильное условное выражение"""
     
-    def __init__(self, line: str, line_num: int, message: str, position: Optional[int] = None):
-        self.custom_message = message
-        super().__init__(ErrorType.CONDITION_INVALID, line, line_num, position)
+    def __init__(self, line: str, line_num: int, message: str = None, position: int = None, key: str = None):
+        self.key = key
+        super().__init__(ErrorType.CONDITION_INVALID, line, line_num, position, None, key=key)
     
     def _guess_error_position(self, line: str) -> int:
         # Находим позицию IF
@@ -835,24 +836,76 @@ class ConditionInvalidError(DSLSyntaxError):
         return 0
     
     def _format_error_message(self) -> str:
-        """Форматирует сообщение об ошибке с кастомным сообщением"""
-        # Используем пользовательское сообщение
-        message = self.custom_message
-        
-        # Форматируем строку с указателем на позицию ошибки
+        # Получаем соответствующее сообщение об ошибке
+        # Если есть ключ (IF/ELIF/ELSE), подставляем в текст
+        if self.key:
+            key_part = f" после {self.key}:"
+        else:
+            key_part = ""
+        message = self.loc.get(ERROR_MESSAGE_MAP.get(self.error_type, Messages.Error.CONDITION_INVALID), key_part=key_part)
         pointer = " " * self.position + "^"
-        
         result = [
             self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
             f"{self.line}",
             f"{pointer}",
             f"{message}",
         ]
-        
         # Если есть подсказка в карте подсказок, добавляем её
         hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
         if hint:
             hint_label = self.loc.get(Messages.Hint.LABEL)
             result.append(f"{hint_label} {hint}")
-        
+        return "\n".join(result)
+
+
+class FuncNotFoundError(DSLSyntaxError):
+    """Ошибка: функция не найдена"""
+    def __init__(self, line: str, line_num: int, func_name: str, position: int = None, func_folder: str = None):
+        self.func_name = func_name
+        self.func_folder = func_folder
+        super().__init__(ErrorType.FUNC_NOT_FOUND, line, line_num, position, None, func_name=func_name, func_folder=func_folder)
+    def _guess_error_position(self, line: str) -> int:
+        # Ищем *func_name
+        pos = line.find(f"*{self.func_name}")
+        if pos != -1:
+            return pos
+        return 0
+
+
+class FuncConflictError(DSLSyntaxError):
+    """Ошибка: конфликт имён функций между std_func и пользовательской папкой"""
+    def __init__(self, func_name: str, line: str = None, line_num: int = 0, position: int = None):
+        self.func_name = func_name
+        dummy_line = f"*{func_name}" if line is None else line
+        super().__init__(ErrorType.FUNC_CONFLICT, dummy_line, line_num, position, None, func_name=func_name)
+    def _guess_error_position(self, line: str) -> int:
+        pos = line.find(f"*{self.func_name}")
+        if pos != -1:
+            return pos
+        return 0 
+
+
+def print_func_conflict_error(std_func_dir: str, user_func_dir: str, conflicts: set):
+    pr("")
+    pr(">R<Обнаружены имена функций, которые уже существуют в системной библиотеке!>RS<", color=True)
+    pr(f"Пользовательская папка: {user_func_dir}")
+    pr("")
+    for func_name in sorted(conflicts):
+        pr(f"  >Y<'{func_name}'>RS< в пользовательской папке >R<уже определено>RS< системной функцией>RS<", color=True)
+    pr("")
+    pr(">G<Переименуйте пользовательские функции или удалите их>RS<", color=True)
+    pr("")
+
+
+class ExternalFuncFolderNotFoundError(DSLSyntaxError):
+    """Ошибка: папка с пользовательскими функциями не найдена"""
+    def __init__(self, folder_name: str, line: str = None, line_num: int = 0, position: int = None):
+        self.folder_name = folder_name
+        dummy_line = f"func_folder=\"{folder_name}\"" if line is None else line
+        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position or 0, None)
+    def _format_error_message(self) -> str:
+        message = self.loc.get(Messages.Error.FUNC_FOLDER_NOT_FOUND, folder=self.folder_name)
+        hint = self.loc.get(Messages.Hint.FUNC_FOLDER_NOT_FOUND)
+        hint_label = self.loc.get(Messages.Hint.LABEL)
+        result = [message, f"{hint_label} {hint}"]
         return "\n".join(result) 

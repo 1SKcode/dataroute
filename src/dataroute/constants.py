@@ -61,11 +61,14 @@ class ErrorType(Enum):
     SRC_FIELD_AS_VAR = auto()      # Использование поля из левой части как переменной
     INVALID_TYPE = auto()          # Неверный тип данных
     DUPLICATE_FINAL_NAME = auto()  # Дублирующееся имя финальной цели
+    DUPLICATE_TARGET_NAME_TYPE = auto()  # Дублирующееся type/name для цели
     CONDITION_MISSING_IF = auto()  # В выражении может быть только if, но не может быть else без if
     CONDITION_MISSING_PARENTHESIS = auto()  # Условная конструкция должна содержать знак скобок
     CONDITION_EMPTY_EXPRESSION = auto()  # Не найдено логическое выражение внутри условной конструкции
     CONDITION_MISSING_COLON = auto()  # Не найден знак завершения условного выражения (:)
     CONDITION_INVALID = auto()  # Недопустимое или неправильное условное выражение
+    FUNC_NOT_FOUND = auto()  # Функция не найдена
+    FUNC_CONFLICT = auto()  # Конфликт имён функций
 
 
 # ==============================================================
@@ -94,11 +97,14 @@ ERROR_MESSAGE_MAP = {
     ErrorType.SRC_FIELD_AS_VAR: M.Error.SRC_FIELD_AS_VAR,
     ErrorType.INVALID_TYPE: M.Error.INVALID_TYPE,
     ErrorType.DUPLICATE_FINAL_NAME: M.Error.DUPLICATE_FINAL_NAME,
+    ErrorType.DUPLICATE_TARGET_NAME_TYPE: M.Error.DUPLICATE_TARGET_NAME_TYPE,
     ErrorType.CONDITION_MISSING_IF: M.Error.CONDITION_MISSING_IF,
     ErrorType.CONDITION_MISSING_PARENTHESIS: M.Error.CONDITION_MISSING_PARENTHESIS,
     ErrorType.CONDITION_EMPTY_EXPRESSION: M.Error.CONDITION_EMPTY_EXPRESSION,
     ErrorType.CONDITION_MISSING_COLON: M.Error.CONDITION_MISSING_COLON,
-    ErrorType.CONDITION_INVALID: M.Error.CONDITION_INVALID
+    ErrorType.CONDITION_INVALID: M.Error.CONDITION_INVALID,
+    ErrorType.FUNC_NOT_FOUND: M.Error.FUNC_NOT_FOUND,
+    ErrorType.FUNC_CONFLICT: M.Error.FUNC_CONFLICT
 }
 
 # Связь между ErrorType и подсказками
@@ -120,11 +126,14 @@ ERROR_HINT_MAP = {
     ErrorType.SRC_FIELD_AS_VAR: M.Hint.SRC_FIELD_AS_VAR,
     ErrorType.INVALID_TYPE: M.Hint.INVALID_TYPE,
     ErrorType.DUPLICATE_FINAL_NAME: M.Hint.DUPLICATE_FINAL_NAME,
+    ErrorType.DUPLICATE_TARGET_NAME_TYPE: M.Hint.DUPLICATE_TARGET_NAME_TYPE,
     ErrorType.CONDITION_MISSING_IF: M.Hint.CONDITION_MISSING_IF,
     ErrorType.CONDITION_MISSING_PARENTHESIS: M.Hint.CONDITION_MISSING_PARENTHESIS,
     ErrorType.CONDITION_EMPTY_EXPRESSION: M.Hint.CONDITION_EMPTY_EXPRESSION,
     ErrorType.CONDITION_MISSING_COLON: M.Hint.CONDITION_MISSING_COLON,
-    ErrorType.CONDITION_INVALID: M.Hint.CONDITION_INVALID
+    ErrorType.CONDITION_INVALID: M.Hint.CONDITION_INVALID,
+    ErrorType.FUNC_NOT_FOUND: M.Hint.FUNC_NOT_FOUND,
+    ErrorType.FUNC_CONFLICT: M.Hint.FUNC_CONFLICT
 }
 
 

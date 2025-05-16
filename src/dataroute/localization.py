@@ -45,8 +45,12 @@ class Messages:
         CONDITION_MISSING_PARENTHESIS = {"ru": ">R<Условная конструкция должна содержать знак скобок>RS<", "en": ">R<Conditional construction must contain parentheses>RS<"}
         CONDITION_EMPTY_EXPRESSION = {"ru": ">R<Не найдено логическое выражение внутри условной конструкции>RS<", "en": ">R<No logical expression found inside conditional construction>RS<"}
         CONDITION_MISSING_COLON = {"ru": ">R<Не найден знак завершения условного выражения (:)>RS<", "en": ">R<Closing symbol (:) of the conditional expression not found>RS<"}
-        CONDITION_INVALID = {"ru": ">R<Недопустимое или неправильное условное выражение>RS<", "en": ">R<Invalid or incorrect conditional expression>RS<"}
+        CONDITION_INVALID = {"ru": ">R<Недопустимое или неправильное условное выражение{key_part}>RS<", "en": ">R<Invalid or incorrect conditional expression{key_part}>RS<"}
         DUPLICATE_FINAL_NAME = {"ru": ">R<Дублирующееся имя финальной цели:>RS< {final_name}", "en": ">R<Duplicate final target name:>RS< {final_name}"}
+        DUPLICATE_TARGET_NAME_TYPE = {"ru": ">R<Дублирующееся имя цели:>RS< {target_type}", "en": ">R<Duplicate target name:>RS< {target_type}"}
+        FUNC_NOT_FOUND = {"ru": ">R<Функция не найдена:>RS< {func_name}", "en": ">R<Function not found:>RS< {func_name}"}
+        FUNC_CONFLICT = {"ru": ">R<Конфликт имён функций:>RS< {func_name}. Уже определена в системной и пользовательской папках.", "en": ">R<Function name conflict:>RS< {func_name}. Already defined in both system and user folders."}
+        FUNC_FOLDER_NOT_FOUND = {"ru": ">R<Папка с пользовательскими функциями не найдена:>RS< {folder}", "en": ">R<User function folder not found:>RS< {folder}"}
 
     class Hint:
         LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
@@ -68,7 +72,7 @@ class Messages:
         EXTERNAL_VAR_PATH_NOT_FOUND = {"ru": "Проверьте путь во внешней переменной", "en": "Check the path in the external variable"}
         UNKNOWN_PIPELINE_SEGMENT = {"ru": "Используйте *имя_функции для вызова функции или усло", "en": "Use *function_name to call a function or if for conditions"}
         UNDEFINED_VAR = {"ru": "Переменная должна быть определена перед использованием. Пример: [field] -> |*func| -> [$var_name](type)", "en": "Variable must be defined before usage. Example: [field] -> |*func| -> [$var_name](type)"}
-        INVALID_VAR_USAGE = {"ru": "В пайплайне до определения результата можно использовать только переменные с префиксом $^", "en": "Only variables with $^ prefix can be used in pipeline before result definition"}
+        INVALID_VAR_USAGE = {"ru": "Обратите внимание на место определения и использования переменной", "en": "Pay attention to the definition and usage of the variable"}
         SRC_FIELD_AS_VAR = {"ru": "Создайте отдельный маршрут для сохранения поля в переменную: [field] -> [$var_field](type), затем используйте $var_field", "en": "Create a separate route to save the field as a variable: [field] -> [$var_field](type), then use $var_field"}
         INVALID_TYPE = {"ru": "Используйте один из разрешённых типов данных: {allowed_types}", "en": "Use one of the allowed data types: {allowed_types}"}
         CONDITION_MISSING_IF = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
@@ -77,6 +81,10 @@ class Messages:
         CONDITION_MISSING_COLON = {"ru": "Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Possible solution: use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         CONDITION_INVALID = {"ru": "Проверьте правильность условного выражения и используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...", "en": "Check the correctness of the conditional expression and use IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ... constructions"}
         DUPLICATE_FINAL_NAME = {"ru": "Цель уже используется для записи. Проверьте уникальность имени.", "en": "Target is already used for writing. Check name uniqueness."}
+        DUPLICATE_TARGET_NAME_TYPE = {"ru": "Используйте уникальные имена целей для разных типов", "en": "Use unique target names for different types"}
+        FUNC_NOT_FOUND = {"ru": "Проверьте имя функции и наличие файла с именем {func_name} в указанной вами папке: >Y<{func_folder}>RS<", "en": "Check the function name and the presence of a file named {func_name} in the specified folder: >Y<{func_folder}>RS<"}
+        FUNC_CONFLICT = {"ru": "Переименуйте пользовательскую функцию или удалите конфликтующий файл: {func_name}", "en": "Rename the user function or remove the conflicting file: {func_name}"}
+        FUNC_FOLDER_NOT_FOUND = {"ru": "Проверьте путь к папке с функциями или создайте её.", "en": "Check the function folder path or create it."}
     class Debug:
         PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
         ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}

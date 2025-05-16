@@ -31,7 +31,8 @@ class DataRoute:
         vars_folder: str = None,
         debug: bool = False, 
         lang: str = "en", 
-        color: bool = False
+        color: bool = False,
+        func_folder: str = None
     ):
         """
         Создает новый экземпляр для обработки DSL
@@ -45,8 +46,9 @@ class DataRoute:
             debug: Включить режим отладки с дополнительными сообщениями
             lang: Язык сообщений ('ru' или 'en')
             color: Использовать цветной вывод
+            func_folder: Путь к папке с функциями
         """
-        self._engine = Engine(source, debug, lang, color, vars_folder)
+        self._engine = Engine(source, debug, lang, color, vars_folder, func_folder)
     
     def go(self) -> Dict[str, Any]:
         """

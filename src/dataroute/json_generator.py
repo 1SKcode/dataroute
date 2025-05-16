@@ -157,20 +157,31 @@ class JSONGenerator(ASTVisitor):
     
     def visit_program(self, node):
         """Обход корневого узла программы"""
-        # Собираем карту таргетов (name -> TargetNode)
         self.target_info_map = getattr(node, '_targets', {})
-        # Получаем глобальные переменные
         global_vars = getattr(node, '_global_vars', {})
-        
+        # Проверка дубликатов только по полному ключу type/name
+        type_name_keys = set()
         for name, target_node in self.target_info_map.items():
-            self.target_name_map[name] = target_node.value
+            type_name_key = f"{target_node.target_type['type']}/{target_node.target_type['name']}"
+            if type_name_key in type_name_keys:
+                from .errors import DSLSyntaxError
+                from .constants import ErrorType
+                from .localization import Messages
+                raise DSLSyntaxError(
+                    ErrorType.DUPLICATE_TARGET_NAME_TYPE,
+                    type_name_key,
+                    0,
+                    0,
+                    self.loc.get(Messages.Hint.DUPLICATE_TARGET_NAME_TYPE),
+                    target_name=target_node.value,
+                    target_type=type_name_key
+                )
+            type_name_keys.add(type_name_key)
+            self.target_name_map[name] = type_name_key
         for child in node.children:
             child.accept(self)
-        
-        # Добавляем глобальные переменные в результат, если они есть
         if self.global_vars:
             self.result["global_vars"] = self.global_vars
-        
         pr(M.Info.JSON_GENERATED, count=len(self.result))
         return self.result
     
@@ -180,8 +191,9 @@ class JSONGenerator(ASTVisitor):
         pr(M.Info.SET_SOURCE_TYPE, type=self.source_type)
     
     def visit_target(self, node):
-        # Не добавляем ключ в self.result, только сохраняем target_name_map
-        self.target_name_map[node.name] = node.value
+        # Ключ для результата теперь type/name
+        type_name_key = f"{node.target_type['type']}/{node.target_type['name']}"
+        self.target_name_map[node.name] = type_name_key
         pr(M.Info.TARGET_ADDED, value=node.value, type=node.target_type)
     
     def visit_route_block(self, node):
@@ -189,15 +201,15 @@ class JSONGenerator(ASTVisitor):
         target_name = node.target_name
         target_node = self.target_info_map.get(target_name)
         if target_node:
-            target_key = target_node.value
-            self.target_name_map[target_name] = target_key
-            if target_key not in self.result:
-                self.result[target_key] = {
+            type_name_key = f"{target_node.target_type['type']}/{target_node.target_type['name']}"
+            self.target_name_map[target_name] = type_name_key
+            if type_name_key not in self.result:
+                self.result[type_name_key] = {
                     "sourse_type": self.source_type,
                     "target_type": target_node.target_type,
                     "routes": {}
                 }
-            self.current_target = target_key
+            self.current_target = type_name_key
         else:
             self.current_target = target_name
         pr(M.Debug.ROUTE_PROCESSING, target=self.current_target)

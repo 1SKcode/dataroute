@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 from .lexer import Lexer
 from .parser import Parser
 from .json_generator import JSONGenerator
-from .errors import DSLSyntaxError, ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError, ExternalVarPathNotFoundError
+from .errors import DSLSyntaxError, ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError, ExternalVarPathNotFoundError, FuncConflictError, print_func_conflict_error, ExternalFuncFolderNotFoundError
 from .localization import Messages as M, Localization
 from .mess_core import colorize, pr
 from .config import Config
@@ -28,7 +28,8 @@ class Engine:
         debug: bool = False, 
         lang: str = "en", 
         color: bool = False,
-        vars_folder: str = None
+        vars_folder: str = None,
+        func_folder: str = None
     ):
         """
         Инициализирует компоненты обработки DSL
@@ -39,6 +40,7 @@ class Engine:
             lang: Код языка ('ru' или 'en')
             color: Флаг использования цветного вывода
             vars_folder: Путь к папке с внешними переменными
+            func_folder: Путь к папке с функциями
             
         Note:
             Класс не предназначен для прямого использования.
@@ -49,13 +51,16 @@ class Engine:
         self._lang = lang
         self._color = color
         self._vars_folder = vars_folder
+        self._func_folder = func_folder
         
         # Автоматически определяем, является ли source файлом
         self._is_file = self._detect_source_type(source)
             
         # Инициализация компонентов обработки DSL
         self._lexer = Lexer()
+        self._available_funcs = self._collect_functions()
         self._parser = Parser()
+        self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
         self._json_generator = JSONGenerator(vars_folder)
         
         # Результат обработки
@@ -214,6 +219,7 @@ class Engine:
         # Пересоздаем компоненты для полного сброса их внутреннего состояния
         self._lexer = Lexer()
         self._parser = Parser()
+        self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
         # Не создаем новый JSONGenerator, а очищаем состояние существующего
         if hasattr(self._json_generator, 'reset'):
             self._json_generator.reset()
@@ -230,6 +236,12 @@ class Engine:
             # Критическая проверка папки с переменными
             if self._vars_folder and not os.path.isdir(self._vars_folder):
                 error = ExternalVarsFolderNotFoundError(self._vars_folder)
+                pr(str(error), file=sys.stderr)
+                sys.exit(1)
+            
+            # Проверяем существование пользовательской папки функций
+            if self._func_folder and not os.path.isdir(self._func_folder):
+                error = ExternalFuncFolderNotFoundError(self._func_folder)
                 pr(str(error), file=sys.stderr)
                 sys.exit(1)
             
@@ -364,3 +376,29 @@ class Engine:
             bool: True, если источник - файл, иначе False
         """
         return self._is_file 
+    
+    def _collect_functions(self):
+        """Собирает имена функций из std_func и пользовательской папки, проверяет конфликты."""
+        import os
+        from .localization import Messages as M
+        from .localization import Localization
+        std_func_dir = os.path.join(os.path.dirname(__file__), "../std_func")
+        std_func_dir = os.path.abspath(std_func_dir)
+        std_funcs = set()
+        user_funcs = set()
+        # Собираем стандартные функции
+        if os.path.isdir(std_func_dir):
+            for f in os.listdir(std_func_dir):
+                if f.endswith(".py") and not f.startswith("_"):
+                    std_funcs.add(os.path.splitext(f)[0])
+        # Собираем пользовательские функции
+        if self._func_folder and os.path.isdir(self._func_folder):
+            for f in os.listdir(self._func_folder):
+                if f.endswith(".py") and not f.startswith("_"):
+                    user_funcs.add(os.path.splitext(f)[0])
+        # Проверяем конфликты
+        conflicts = std_funcs & user_funcs
+        if conflicts:
+            print_func_conflict_error(std_func_dir, self._func_folder, conflicts)
+            sys.exit(1)
+        return std_funcs | user_funcs 

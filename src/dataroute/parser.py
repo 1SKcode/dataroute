@@ -7,7 +7,7 @@ from .errors import (DSLSyntaxError, UndefinedVarError, InvalidVarUsageError,
                     FinalTypeError, VoidTypeError, UnknownPipelineSegmentError,
                     ConditionMissingIfError, ConditionMissingParenthesisError,
                     ConditionEmptyExpressionError, ConditionMissingColonError,
-                    ConditionInvalidError)
+                    ConditionInvalidError, FuncNotFoundError)
 from .ast_nodes import (
     ASTNode, ProgramNode, SourceNode, TargetNode, RouteBlockNode,
     FieldSrcNode, PipelineNode, FieldDstNode, RouteLineNode, PipelineItemNode, GlobalVarNode, FuncCallNode, DirectMapNode, ConditionNode, EventNode
@@ -29,6 +29,7 @@ class Parser:
         self.loc = Localization(Config.get_lang())
         self._local_vars = {}  # Отслеживание локальных переменных: имя -> {тип, исходное_поле, определен}
         self._local_var_refs = {}  # Список всех ссылок на переменные: имя -> [маршруты]
+        self._available_funcs = set()
     
     def parse(self, tokens=None):
         """Запускает процесс парсинга"""
@@ -43,6 +44,9 @@ class Parser:
         
         pr(M.Debug.PARSING_START)
         
+        # Для проверки дубликатов type/name
+        type_name_keys = set()
+        
         # Проходим по токенам
         while self.position < len(self.tokens):
             token = self.tokens[self.position]
@@ -56,8 +60,23 @@ class Parser:
                     {"type": token.value['type'], "name": token.value['value']},
                     token.value['value']
                 )
+                # Проверка дубликата по type/name
+                type_name_key = f"{token.value['type']}/{token.value['value']}"
+                if type_name_key in type_name_keys:
+                    from .errors import DSLSyntaxError
+                    from .constants import ErrorType
+                    from .localization import Messages
+                    raise DSLSyntaxError(
+                        ErrorType.DUPLICATE_TARGET_NAME_TYPE,
+                        type_name_key,
+                        token.position,
+                        0,
+                        self.loc.get(Messages.Hint.DUPLICATE_TARGET_NAME_TYPE),
+                        target_name=token.value['value'],
+                        target_type=type_name_key
+                    )
+                type_name_keys.add(type_name_key)
                 self.ast.children.append(target_node)
-                # Сохраняем информацию о нашем таргете для упрощения доступа
                 if not hasattr(self.ast, '_targets'):
                     self.ast._targets = {}
                 self.ast._targets[token.value['name']] = target_node
@@ -137,6 +156,18 @@ class Parser:
                 self.position += 1
         
         pr(M.Debug.PARSING_FINISH)
+        # Если нет ни одного блока маршрутов, выбрасываем SEMANTIC_ROUTES
+        if not any(isinstance(child, RouteBlockNode) for child in self.ast.children):
+            from .errors import DSLSyntaxError
+            from .constants import ErrorType
+            from .localization import Messages
+            raise DSLSyntaxError(
+                ErrorType.SEMANTIC_ROUTES,
+                "(no routes)",
+                0,
+                0,
+                self.loc.get(Messages.Hint.ROUTES_MISSING)
+            )
         return self.ast
     
     def _parse_source(self) -> SourceNode:
@@ -375,6 +406,11 @@ class Parser:
                         # Оставляем только имя функции
                         func_name = func_name[:param_start]
                     
+                    # Проверка наличия функции
+                    if self._available_funcs and func_name not in self._available_funcs:
+                        error = FuncNotFoundError(original_line, line_num, func_name, original_line.find(f"*{func_name}"), func_folder=getattr(self, '_func_folder', None))
+                        pr(str(error))
+                        sys.exit(1)
                     pipeline.items.append(PipelineItemNode(
                         PipelineItemType.PY_FUNC,
                         func_name,
@@ -404,6 +440,9 @@ class Parser:
         var_matches = re.finditer(r'\$(\^?)?\s*([a-zA-Z][a-zA-Z0-9_]*)', condition)
         
         for match in var_matches:
+            # Пропускаем внешние переменные ($$...)
+            if (match.start() > 0 and condition[match.start()-1] == '$') or condition[match.start():].startswith('$$'):
+                continue
             is_pre_var = match.group(1) == '^'
             var_name = match.group(2)
             
@@ -478,7 +517,11 @@ class Parser:
         
         # Проверяем, есть ли в пайплайне неопределенные переменные
         var_pattern = r'\$(\^)?([a-zA-Z][a-zA-Z0-9_]*)'
+        items = []
         for match in re.finditer(var_pattern, pipeline_str):
+            # Пропускаем внешние переменные ($$...)
+            if (match.start() > 0 and pipeline_str[match.start()-1] == '$') or pipeline_str[match.start():].startswith('$$'):
+                continue
             is_pre_var = match.group(1) == '^'
             var_name = match.group(2)
             
@@ -524,7 +567,6 @@ class Parser:
                 pr(str(error))
                 sys.exit(1)
         
-        items = []
         # Если строка пустая, возвращаем пустой список
         if not inner_content:
             return items
@@ -545,44 +587,38 @@ class Parser:
         if inner_content.startswith('*'):
             # Функция Python
             func_text = inner_content[1:]  # Убираем * в начале
-            
             # Проверяем, есть ли параметры
             param_value = "$this"  # Значение по умолчанию
             is_external_var = False
             if '(' in func_text and func_text.endswith(')'):
-                # Есть параметры
-                param_start = func_text.find('(')
-                param_end = func_text.rfind(')')
-                func_name = func_text[:param_start]
-                param_text = func_text[param_start+1:param_end].strip()
-                
+                idx = func_text.find('(')
+                func_name = func_text[:idx]
+                param_text = func_text[idx+1:-1].strip()
                 # Проверяем специальные типы параметров
                 if param_text.startswith('$$'):
-                    # Внешняя переменная
                     param_value = param_text
                     is_external_var = True
                 elif param_text.startswith('$^'):
-                    # Пре-переменная
                     param_value = param_text
                 elif param_text.startswith('$'):
-                    # Локальная переменная
                     param_value = param_text
                 else:
-                    # Обычный параметр
                     param_value = param_text
             else:
                 func_name = func_text
-            
+            # Проверка наличия функции
+            if self._available_funcs and func_name not in self._available_funcs:
+                error = FuncNotFoundError(original_line, line_num, func_name, original_line.find(f"*{func_name}"), func_folder=getattr(self, '_func_folder', None))
+                pr(str(error))
+                sys.exit(1)
             # Создаем узел для функции
             node = FuncCallNode(
                 value=inner_content,
                 params={"param": param_value, "is_external_var": is_external_var}
             )
-            
             # Сохраняем информацию о позиции
             node_pos = pipeline_start_pos + inner_content.find('*')
             node.set_position_info(original_line, line_num, node_pos)
-            
             items.append(node)
         elif inner_content == '$this':
             # Прямое отображение значения
@@ -652,177 +688,122 @@ class Parser:
         
     def _parse_conditional_expression(self, content: str, original_line: str, line_num: int, pipeline_start_pos: int, src_field_name: str):
         """
-        Парсит условное выражение с проверкой синтаксиса
-        
-        Args:
-            content: Содержимое условного выражения
-            original_line: Исходная строка для сообщений об ошибках
-            line_num: Номер строки для сообщений об ошибках
-            pipeline_start_pos: Позиция начала пайплайна в строке
-            src_field_name: Имя исходного поля для проверки переменных
-            
-        Raises:
-            DSLSyntaxError: При обнаружении синтаксических ошибок
+        Строго парсит условное выражение IF/ELIF/ELSE с проверкой синтаксиса для каждой ветки
         """
-        # Проверка на наличие ELSE без IF
-        if content.lower().startswith('else') and not content.lower().startswith('else:'):
-            pos = pipeline_start_pos + content.lower().find('else')
+        import re
+        # === СТАРЫЕ ПРОВЕРКИ ДЛЯ BACKWARD COMPATIBILITY ===
+        content_strip = content.strip()
+        # ELSE без IF
+        if content_strip.lower().startswith('else') and not content_strip.lower().startswith('else:'):
+            pos = pipeline_start_pos + content_strip.lower().find('else')
             raise ConditionMissingIfError(original_line, line_num, pos)
-        elif content.lower().startswith('else:'):
-            pos = pipeline_start_pos + content.lower().find('else')
-            raise ConditionMissingIfError(original_line, line_num, pos)
-            
-        # Если выражение начинается с IF
-        if content.lower().startswith('if'):
-            # Проверяем наличие скобок
-            if '(' not in content or ')' not in content:
-                pos = pipeline_start_pos + len('if')
+        # IF без скобок
+        if content_strip.lower().startswith('if'):
+            after_if = content_strip[2:].lstrip()
+            if not after_if.startswith('('):
+                pos = pipeline_start_pos + content_strip.lower().find('if') + 2
                 raise ConditionMissingParenthesisError(original_line, line_num, pos)
-                
-            # Проверяем, что скобки идут после IF и перед ними нет других символов
-            if_end_pos = len('if')
-            if not content[if_end_pos:].lstrip().startswith('('):
-                pos = pipeline_start_pos + if_end_pos
-                raise ConditionMissingParenthesisError(original_line, line_num, pos)
-                
-            # Находим открывающую и закрывающую скобки
-            open_paren_pos = content.find('(')
-            close_paren_pos = content.find(')', open_paren_pos)
-            
-            if close_paren_pos == -1:
-                # Нет закрывающей скобки
-                pos = pipeline_start_pos + open_paren_pos
-                raise ConditionMissingParenthesisError(original_line, line_num, pos)
-                
-            # Проверяем, что внутри скобок есть содержимое
-            exp_content = content[open_paren_pos+1:close_paren_pos].strip()
-            if not exp_content:
-                pos = pipeline_start_pos + open_paren_pos + 1
-                raise ConditionEmptyExpressionError(original_line, line_num, pos)
-                
-            # Проверяем наличие двоеточия после условия
-            if not content[close_paren_pos+1:].lstrip().startswith(':'):
-                pos = pipeline_start_pos + close_paren_pos + 1
-                raise ConditionMissingColonError(original_line, line_num, pos)
-                
-            # Проверяем, что после двоеточия есть содержимое
-            colon_pos = content.find(':', close_paren_pos)
-            if_block_content = content[colon_pos+1:].strip()
-            
-            # Находим ELSE или ELIF, если они есть
-            else_pos = -1
-            elif_pos = -1
-            
-            # Ищем ELSE или ELIF за пределами строк и комментариев
-            in_string = False
-            string_char = None
-            escape_next = False
-            
-            for i in range(colon_pos + 1, len(content)):
-                c = content[i]
-                
-                # Обработка строковых литералов
-                if not escape_next and c in ('"', "'"):
-                    if not in_string:
-                        in_string = True
-                        string_char = c
-                    elif c == string_char:
-                        in_string = False
-                elif c == '\\' and in_string:
-                    escape_next = True
-                    continue
-                    
-                # Если мы не в строке, ищем ELSE или ELIF
-                if not in_string:
-                    if content[i:i+4].lower() == 'else' and (i == 0 or not content[i-1].isalnum()):
-                        else_pos = i
-                        break
-                    elif content[i:i+4].lower() == 'elif' and (i == 0 or not content[i-1].isalnum()):
-                        elif_pos = i
-                        break
-                        
-                escape_next = False
-
-            # Проверка переменных в условном выражении IF
-            if '$' in exp_content:
-                self._check_condition_vars(exp_content, src_field_name, original_line, line_num)
-            
-            # Проверяем корректность ELSE
-            if else_pos != -1:
-                rest_after_else = content[else_pos+4:].lstrip()
-                if not rest_after_else.startswith(':'):
-                    pos = pipeline_start_pos + else_pos + 4
-                    raise ConditionMissingColonError(original_line, line_num, pos)
-                    
-                else_content = rest_after_else[1:].strip()
-                if not else_content:
-                    pos = pipeline_start_pos + else_pos + 4 + len(rest_after_else[:rest_after_else.find(':')+1])
-                    raise ConditionInvalidError(original_line, line_num, 
-                                               "После ELSE: должно быть указано действие", pos)
-                                               
-                # Проверка переменных в блоке ELSE
-                if '$' in else_content:
-                    self._check_condition_vars(else_content, src_field_name, original_line, line_num)
-            
-            # Проверяем корректность ELIF (аналогично проверке IF)
-            if elif_pos != -1:
-                rest_after_elif = content[elif_pos+4:].lstrip()
-                if not rest_after_elif.startswith('('):
-                    pos = pipeline_start_pos + elif_pos + 4
-                    raise ConditionMissingParenthesisError(original_line, line_num, pos)
-                    
-                # Находим скобки ELIF
-                elif_open_paren = content.find('(', elif_pos)
-                elif_close_paren = content.find(')', elif_open_paren)
-                
-                if elif_close_paren == -1:
-                    pos = pipeline_start_pos + elif_open_paren
-                    raise ConditionMissingParenthesisError(original_line, line_num, pos)
-                    
-                # Проверяем содержимое скобок
-                elif_exp_content = content[elif_open_paren+1:elif_close_paren].strip()
-                if not elif_exp_content:
-                    pos = pipeline_start_pos + elif_open_paren + 1
-                    raise ConditionEmptyExpressionError(original_line, line_num, pos)
-                    
-                # Проверка переменных в условном выражении ELIF
-                if '$' in elif_exp_content:
-                    self._check_condition_vars(elif_exp_content, src_field_name, original_line, line_num)
-                    
-                # Проверяем двоеточие после ELIF
-                rest_after_elif_exp = content[elif_close_paren+1:].lstrip()
-                if not rest_after_elif_exp.startswith(':'):
-                    pos = pipeline_start_pos + elif_close_paren + 1
-                    raise ConditionMissingColonError(original_line, line_num, pos)
-                    
-                # Проверяем содержимое блока ELIF
-                elif_colon_pos = content.find(':', elif_close_paren)
-                elif_block_content = content[elif_colon_pos+1:else_pos if else_pos != -1 else None].strip()
-                if not elif_block_content:
-                    pos = pipeline_start_pos + elif_colon_pos + 1
-                    raise ConditionInvalidError(original_line, line_num, 
-                                               "После ELIF: должно быть указано действие", pos)
-                                               
-                # Проверка переменных в блоке ELIF после двоеточия
-                if '$' in elif_block_content:
-                    self._check_condition_vars(elif_block_content, src_field_name, original_line, line_num)
-            
-            # Создаем узел для условного выражения
-            node = ConditionNode(
-                value=content,
-                params={}
+        # ELIF без скобок (например, ELIFtrue)
+        m_elif_no_paren = re.search(r"(?i)\bELIF(?=\w)", content)
+        if m_elif_no_paren:
+            pos = pipeline_start_pos + m_elif_no_paren.start()
+            raise ConditionMissingParenthesisError(original_line, line_num, pos)
+        # === СТРОГИЙ РАЗБОР ВСЕХ ВЕТОК ===
+        pattern = re.compile(r"(?i)\b(IF|ELIF|ELSE)\b")
+        matches = list(pattern.finditer(content))
+        if not matches:
+            from .localization import Messages
+            raise ConditionInvalidError(
+                original_line,
+                line_num,
+                None,  # Использовать стандартное сообщение
+                pipeline_start_pos
             )
-            
-            # Сохраняем информацию о позиции
-            node_pos = pipeline_start_pos
-            node.set_position_info(original_line, line_num, node_pos)
-            
-            return node
-        
-        # Если выражение начинается не с известных ключевых слов
-        raise ConditionInvalidError(original_line, line_num, 
-                                   "Неизвестная конструкция условного выражения", 
-                                   pipeline_start_pos)
+
+        for idx, m in enumerate(matches):
+            key = m.group(1).upper()
+            start = m.start()
+            end = matches[idx+1].start() if idx+1 < len(matches) else len(content)
+            branch = content[start:end].strip()
+            rel_pos = pipeline_start_pos + start
+
+            if key in ("IF", "ELIF"):
+                # Проверка скобок
+                open_paren = branch.find("(")
+                close_paren = branch.find(")", open_paren)
+                if open_paren == -1 or close_paren == -1:
+                    raise ConditionMissingParenthesisError(original_line, line_num, rel_pos + (open_paren if open_paren != -1 else 0))
+                exp_content = branch[open_paren+1:close_paren].strip()
+                if not exp_content:
+                    raise ConditionEmptyExpressionError(original_line, line_num, rel_pos + open_paren + 1)
+                # Проверка двоеточия
+                after_paren = branch[close_paren+1:].lstrip()
+                if not after_paren.startswith(":"):
+                    raise ConditionMissingColonError(original_line, line_num, rel_pos + close_paren + 1)
+                # Проверка действия
+                colon_pos = branch.find(":", close_paren)
+                do_content = branch[colon_pos+1:].strip()
+                if not do_content:
+                    from .localization import Messages
+                    raise ConditionInvalidError(
+                        original_line,
+                        line_num,
+                        None,  # Использовать стандартное сообщение
+                        rel_pos + colon_pos + 1,
+                        key=key
+                    )
+                # Проверка переменных
+                if "$" in exp_content:
+                    self._check_condition_vars(exp_content, src_field_name, original_line, line_num)
+                if "$" in do_content:
+                    self._check_condition_vars(do_content, src_field_name, original_line, line_num)
+                # === Теперь ищем все вызовы *func только если синтаксис валиден ===
+                for func_match in re.finditer(r"\*([a-zA-Z_][a-zA-Z0-9_]*)\s*(\(|\||$)", branch):
+                    func_name = func_match.group(1)
+                    if self._available_funcs and func_name not in self._available_funcs:
+                        pos = rel_pos + func_match.start()
+                        error = FuncNotFoundError(original_line, line_num, func_name, pos, func_folder=getattr(self, '_func_folder', None))
+                        pr(str(error))
+                        sys.exit(1)
+            elif key == "ELSE":
+                after_else = branch[4:].lstrip()
+                if not after_else.startswith(":"):
+                    raise ConditionMissingColonError(original_line, line_num, rel_pos + 4)
+                do_content = after_else[1:].strip()
+                if not do_content:
+                    from .localization import Messages
+                    raise ConditionInvalidError(
+                        original_line,
+                        line_num,
+                        None,  # Использовать стандартное сообщение
+                        rel_pos + 5,
+                        key=key
+                    )
+                if "$" in do_content:
+                    self._check_condition_vars(do_content, src_field_name, original_line, line_num)
+                # === Теперь ищем все вызовы *func только если синтаксис валиден ===
+                for func_match in re.finditer(r"\*([a-zA-Z_][a-zA-Z0-9_]*)\s*(\(|\||$)", branch):
+                    func_name = func_match.group(1)
+                    if self._available_funcs and func_name not in self._available_funcs:
+                        pos = rel_pos + func_match.start()
+                        error = FuncNotFoundError(original_line, line_num, func_name, pos, func_folder=getattr(self, '_func_folder', None))
+                        pr(str(error))
+                        sys.exit(1)
+            else:
+                from .localization import Messages
+                raise ConditionInvalidError(
+                    original_line,
+                    line_num,
+                    None,  # Использовать стандартное сообщение
+                    rel_pos
+                )
+
+        node = ConditionNode(
+            value=content,
+            params={}
+        )
+        node.set_position_info(original_line, line_num, pipeline_start_pos)
+        return node
 
     def _parse_route_block(self) -> RouteBlockNode:
         """Разбор блока маршрутов для одной цели с проверкой дублирования финальных целей"""
@@ -854,6 +835,11 @@ class Parser:
         route_block = RouteBlockNode(target_name, routes)
         self.ast.children.append(route_block)
         return route_block
+
+    def set_available_funcs(self, funcs: set, func_folder: str = None):
+        """Устанавливает список доступных функций для проверки и путь к папке функций."""
+        self._available_funcs = set(funcs)
+        self._func_folder = func_folder
 
 
 # Импортируем TokenType в конце файла, чтобы избежать циклических зависимостей
