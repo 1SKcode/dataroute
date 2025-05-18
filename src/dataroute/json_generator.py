@@ -559,7 +559,7 @@ class JSONGenerator(ASTVisitor):
         text_resolved = self.resolve_all_global_vars_in_str(text_resolved)
         return {"type": PipelineItemType.DIRECT.value, "param": text_resolved, "full_str": text}
         # Логическое выражение
-        return {"type": "cond_exp", "full_str": text}
+        return {"type": "cond_exp", "full_str": text} 
 
     def resolve_all_external_vars_in_str(self, s, node_context=None):
         """Заменяет все вхождения $$var.path в строке на их значения"""
