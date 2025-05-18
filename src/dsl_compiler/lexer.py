@@ -3,8 +3,8 @@ import sys
 from dataclasses import dataclass
 from typing import List, Any, Optional
 
-from .constants import PATTERNS, TokenType, ALLOWED_TYPES
-from .errors import SyntaxErrorHandler, PipelineEmptyError, InvalidTypeError
+from .constants import PATTERNS, TokenType, ALLOWED_TYPES, SUPPORTED_TARGET_LANGUAGES, ErrorType
+from .errors import SyntaxErrorHandler, PipelineEmptyError, InvalidTypeError, DSLSyntaxError
 from .localization import Localization, Messages as M
 from .config import Config
 from .mess_core import pr
@@ -42,6 +42,19 @@ class Lexer:
         
         pr(M.Debug.TOKENIZATION_START)
         
+        # Проверка наличия директивы языка компиляции ДО любого анализа DSL
+        lang_found = any(re.match(PATTERNS[TokenType.LANG], line.strip()) for line in lines if line.strip())
+        if not lang_found:
+            error = DSLSyntaxError(
+                ErrorType.MISSING_TARGET_LANG,
+                '',
+                1,
+                0,
+                None
+            )
+            pr(str(error))
+            sys.exit(1)
+        
         source_found = False
         
         for line_num, line in enumerate(lines, 1):
@@ -59,6 +72,28 @@ class Lexer:
             # Анализируем строку на соответствие шаблонам
             matched = False
             
+            # Определение языка компиляции (lang=py,lang=cpp) — ДОЛЖНО БЫТЬ ПЕРВЫМ!
+            if not matched:
+                match = re.match(PATTERNS[TokenType.LANG], line)
+                if match:
+                    lang_value = match.group(1)
+                    # Проверяем, поддерживается ли язык компиляции
+                    if lang_value not in SUPPORTED_TARGET_LANGUAGES:
+                        error = DSLSyntaxError(
+                            ErrorType.UNSUPPORTED_TARGET_LANG,
+                            original_line,
+                            line_num,
+                            line.find('lang'),
+                            None,
+                            lang=lang_value
+                        )
+                        pr(str(error))
+                        sys.exit(1)
+                    # Добавляем токен языка
+                    self.tokens.append(Token(TokenType.LANG, lang_value, line_num))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.LANG.name, value=lang_value)
+                    matched = True
+            
             # Определение источника (source=тип/путь)
             if not matched:
                 match = re.match(PATTERNS[TokenType.SOURCE], line)
@@ -67,8 +102,6 @@ class Lexer:
                     source_type = match.group(1)
                     source_name = match.group(2)
                     if not source_type or not source_name:
-                        from .errors import DSLSyntaxError
-                        from .constants import ErrorType
                         error = DSLSyntaxError(
                             ErrorType.SYNTAX_SOURCE,
                             original_line,
@@ -84,8 +117,6 @@ class Lexer:
             
             # Если строка начинается с source=, но не проходит паттерн — это тоже ошибка синтаксиса источника
             if not matched and line.startswith('source='):
-                from .errors import DSLSyntaxError
-                from .constants import ErrorType
                 error = DSLSyntaxError(
                     ErrorType.SYNTAX_SOURCE,
                     original_line,
@@ -104,8 +135,6 @@ class Lexer:
                     target_type = match.group(2)
                     target_value = match.group(3)
                     if not target_type or not target_value:
-                        from .errors import DSLSyntaxError
-                        from .constants import ErrorType
                         error = DSLSyntaxError(
                             ErrorType.SYNTAX_TARGET,
                             original_line,
@@ -120,8 +149,6 @@ class Lexer:
                     matched = True
             # Если строка похожа на targetN=... (имя=...), но не проходит паттерн — ошибка SYNTAX_TARGET
             if not matched and re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*=.*$', line):
-                from .errors import DSLSyntaxError
-                from .constants import ErrorType
                 error = DSLSyntaxError(
                     ErrorType.SYNTAX_TARGET,
                     original_line,
@@ -239,8 +266,6 @@ class Lexer:
                 sys.exit(1)
         
         if not source_found:
-            from .errors import DSLSyntaxError
-            from .constants import ErrorType
             error = DSLSyntaxError(
                 ErrorType.SYNTAX_SOURCE,
                 '',

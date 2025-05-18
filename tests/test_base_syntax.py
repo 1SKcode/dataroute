@@ -1,7 +1,7 @@
 import pytest
 import json
 from dataroute import DataRoute
-from dataroute.localization import Messages
+from dsl_compiler.localization import Messages
 
 
 class TestValidBaseSyntax():
@@ -11,6 +11,7 @@ class TestValidBaseSyntax():
         (
             "case1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -21,6 +22,7 @@ class TestValidBaseSyntax():
                 [pointI] => [pointJ](str)
             """,
             {
+                "lang": "py",
                 "dict/my_new_dict": {
                     "sourse_type": {
                     "type": "dict",
@@ -77,6 +79,7 @@ class TestDoubleTarget:
     """Простой двойной таргет: dict/my_new_dict и postgres/my_new_dict"""
     def test_case1(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target2=postgres/my_new_dict
         target1=dict/my_new_dict
@@ -86,6 +89,7 @@ class TestDoubleTarget:
             [pointA] -> |*func1()| -> [$s](int)
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
@@ -130,6 +134,7 @@ class TestManyTargets:
     """Много целей с одинаковым именем"""
     def test_many_targets(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=postgres1/my_new_dict
         target2=postgres2/my_new_dict
@@ -162,25 +167,24 @@ class TestManyTargets:
         target10:
             [pointA] -> |*func1()| -> [$s](int)
         """
-        expected_result = {
-            f"postgres{i}/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
-                "target_type": {"type": f"postgres{i}", "name": "my_new_dict"},
-                "routes": {
-                    "pointA": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "",
-                                "full_str": "*func1()"
-                            }
-                        },
-                        "final_type": "int",
-                        "final_name": "$s"
-                    }
+        expected_result = {f"postgres{i}/my_new_dict": {
+            "sourse_type": {"type": "dict", "name": "my_dict"},
+            "target_type": {"type": f"postgres{i}", "name": "my_new_dict"},
+            "routes": {
+                "pointA": {
+                    "pipeline": {
+                        "1": {
+                            "type": "py_func",
+                            "param": "",
+                            "full_str": "*func1()"
+                        }
+                    },
+                    "final_type": "int",
+                    "final_name": "$s"
                 }
-            } for i in range(1, 11)
-        }
+            }
+        } for i in range(1, 11)}
+        expected_result["lang"] = "py"
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
         result = dtrt.go()
         assert result == expected_result
@@ -190,6 +194,7 @@ class TestVoidField:
     """Проверка void-полей (пустые скобки)"""
     def test_void_field(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=dict/my_new_dict
         target1:
@@ -198,6 +203,7 @@ class TestVoidField:
             [] -> [B](int)
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
@@ -235,6 +241,7 @@ class TestVoidTargetField:
     """Проверка маршрутов с пустым target-полем ([]() и [])"""
     def test_void_target_field(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=dict/my_new_dict
         target1:
@@ -242,6 +249,7 @@ class TestVoidTargetField:
             [B] -> []
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
@@ -268,6 +276,7 @@ class TestParamThisEquivalence:
     """Параметр $this для |*s1|, |*s1($C)|, |*s1($this)|"""
     def test_param_this_equivalence(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=dict/my_new_dict
         target1:
@@ -276,6 +285,7 @@ class TestParamThisEquivalence:
             [E] -> |*s1($this)| -> [F](str)
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
@@ -325,6 +335,7 @@ class TestExternalVarInPythonParams:
     """Проверка передачи внешних переменных и литералов в параметры python-функции"""
     def test_external_var_in_python_params(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=dict/my_new_dict
         target1:
@@ -332,6 +343,7 @@ class TestExternalVarInPythonParams:
             [C] -> |*func1(\"test\", 1000, True)|-> [D](str)
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {
                     "type": "dict",
@@ -376,6 +388,7 @@ class TestGlobalVarInPythonParams:
     """Проверка подстановки глобальных переменных в параметры python-функций и условия"""
     def test_global_var_in_python_params(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         target1=dict/my_new_dict
         $myvar = 1000
@@ -385,6 +398,7 @@ class TestGlobalVarInPythonParams:
             [A] -> |IF($myvar2 == "test"): *func1($myvar) ELSE: *s1($myvar2)|-> [B](str)
         """
         expected_result = {
+            "lang": "py",
             "dict/my_new_dict": {
                 "sourse_type": {
                     "type": "dict",
@@ -457,6 +471,7 @@ class TestComplexNormBlock:
     """Проверка сложного DSL для norm_data.norm_blocks"""
     def test_norm_block_dsl(self):
         test_case = """
+        lang=py
         source=dict/my_dict
         norm=postgres/norm_data.norm_blocks
         $block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457
@@ -488,6 +503,7 @@ class TestComplexNormBlock:
             [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
         """
         expected_result = {
+            "lang": "py",
             "postgres/norm_data.norm_blocks": {
                 "sourse_type": {
                     "type": "dict",
@@ -806,5 +822,18 @@ class TestComplexNormBlock:
         result = dtrt.go()
         assert result == expected_result, f"Неверный результат для сложного norm_block DSL!\n{result}"
         dtrt.print_json()
+        
 
-
+class TestLangDirectiveSuccess:
+    """Успешная обработка lang"""
+    def test_lang_in_json(self):
+        test_case = """
+        lang=py
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        target1:
+            [field] -> [field](str)
+        """
+        dtrt = DataRoute(test_case, debug=False, lang="ru", color=False)
+        result = dtrt.go()
+        assert result.get('lang') == 'py'

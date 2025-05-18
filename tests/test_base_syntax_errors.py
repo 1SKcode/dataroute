@@ -1,7 +1,7 @@
 import pytest
 import json
 from dataroute import DataRoute
-from dataroute.localization import Messages, Localization
+from dsl_compiler.localization import Messages, Localization
 import re
 import tempfile
 import shutil
@@ -55,6 +55,7 @@ class TestFlowDirectionErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -64,6 +65,7 @@ class TestFlowDirectionErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -88,6 +90,7 @@ class TestPipelineSyntaxErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -97,6 +100,7 @@ class TestPipelineSyntaxErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -121,6 +125,7 @@ class TestBracketSyntaxErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -130,6 +135,7 @@ class TestBracketSyntaxErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -139,6 +145,7 @@ class TestBracketSyntaxErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -148,6 +155,7 @@ class TestBracketSyntaxErrors(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -157,6 +165,7 @@ class TestBracketSyntaxErrors(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -180,6 +189,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -189,6 +199,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -198,6 +209,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -207,6 +219,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -216,6 +229,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -225,6 +239,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_6",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $var1 = "test"
@@ -236,6 +251,7 @@ class TestTypeSyntaxErrors(TestBaseDSL):
         (
             "case_7",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -259,6 +275,7 @@ class TestVoidVarTypeErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -268,6 +285,7 @@ class TestVoidVarTypeErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target2=dict/my_new_dict2
@@ -297,6 +315,7 @@ class TestSyntaxSourceErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source dict
             target1=dict("target_new")
             target1:
@@ -306,6 +325,7 @@ class TestSyntaxSourceErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict
             target1=dict/my_new_dict
             target1:
@@ -315,6 +335,7 @@ class TestSyntaxSourceErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=postgres.norm.path
             target1=dict/my_new_dict
             target1:
@@ -324,6 +345,7 @@ class TestSyntaxSourceErrors(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             target1=dict/my_new_dict
             target1:
                 [pointC] -> []()
@@ -345,6 +367,7 @@ class TestSyntaxTargetErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_new_dict
             target1=dict("target_new")
             target1:
@@ -354,6 +377,7 @@ class TestSyntaxTargetErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_new_dict
             target1=
             target1:
@@ -363,6 +387,7 @@ class TestSyntaxTargetErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_new_dict
             target1=dict
             target1:
@@ -385,6 +410,7 @@ class TestVoidPipelineErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -394,6 +420,7 @@ class TestVoidPipelineErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -404,6 +431,7 @@ class TestVoidPipelineErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -414,6 +442,7 @@ class TestVoidPipelineErrors(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -438,6 +467,7 @@ class TestUnknownTokenErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             dfsdf
             source=dict/my_dict
             target1=dict/my_new_dict
@@ -449,6 +479,7 @@ class TestUnknownTokenErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -474,6 +505,7 @@ class TestValueTypeErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -484,6 +516,7 @@ class TestValueTypeErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -509,6 +542,7 @@ class TestDuplicateVarNameErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $my_var="abc"
@@ -534,6 +568,7 @@ class TestDuplicateTargetNameTypeError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=postgres/my_new_dict
             target2=postgres/my_new_dict
@@ -562,6 +597,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -572,6 +608,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -581,6 +618,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -590,6 +628,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -599,6 +638,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -608,6 +648,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_6",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -617,6 +658,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_7",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $defined=1
@@ -627,6 +669,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_8",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $defined=1
@@ -638,6 +681,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_9",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -647,6 +691,7 @@ class TestNotDefinedVarErrors(TestBaseDSL):
         (
             "case_10",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -673,6 +718,7 @@ class TestNotValidUsadeVarError(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -698,6 +744,7 @@ class TestLeftPartAsVarError(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -720,6 +767,7 @@ class TestVarsFolderNotFound:
     """Папка с внешними переменными не найдена"""
     def test_vars_folder_not_found(self, capsys):
         test_input = """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -736,6 +784,7 @@ class TestExternalVarPathNotFound:
     """Путь не найден во внешней переменной"""
     def test_external_var_path_not_found(self, capsys):
         test_input = """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -751,6 +800,7 @@ class TestVarFileNotFound:
     """Файл не найден"""
     def test_var_file_not_found(self, capsys):
         test_input = """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -768,6 +818,7 @@ class TestElseWithoutIf(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -789,6 +840,7 @@ class TestIfWithoutParenthesis(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -798,6 +850,7 @@ class TestIfWithoutParenthesis(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -807,6 +860,7 @@ class TestIfWithoutParenthesis(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -816,6 +870,7 @@ class TestIfWithoutParenthesis(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -825,6 +880,7 @@ class TestIfWithoutParenthesis(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -846,6 +902,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -855,6 +912,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -864,6 +922,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -873,6 +932,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -882,6 +942,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -903,6 +964,7 @@ class TestIfMissingColon(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -912,6 +974,7 @@ class TestIfMissingColon(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -921,6 +984,7 @@ class TestIfMissingColon(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -932,6 +996,7 @@ class TestIfMissingColon(TestBaseDSL):
         (
             "case_4",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -941,6 +1006,7 @@ class TestIfMissingColon(TestBaseDSL):
         (
             "case_5",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $myvar = 1000
@@ -964,6 +1030,7 @@ class TestConditionInvalidError(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -973,6 +1040,7 @@ class TestConditionInvalidError(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -982,6 +1050,7 @@ class TestConditionInvalidError(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1005,6 +1074,7 @@ class TestSemanticTargetError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target2:
@@ -1028,6 +1098,7 @@ class TestSemanticRoutesError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             '''
@@ -1049,6 +1120,7 @@ class TestDirectMappingWithoutStarWarning(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1079,6 +1151,7 @@ class TestFuncNotFoundError(TestBaseDSL):
         (
             "case_1",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1088,6 +1161,7 @@ class TestFuncNotFoundError(TestBaseDSL):
         (
             "case_2",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1097,6 +1171,7 @@ class TestFuncNotFoundError(TestBaseDSL):
         (
             "case_3",
             """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1121,6 +1196,7 @@ class TestFuncConflictError:
     """Пользовательская функция уже определена в системной библиотеке"""
     def test_func_conflict(self, capsys):
         test_input = """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1138,6 +1214,7 @@ class TestFuncFolderNotFound:
     """Папка с пользовательскими функциями не найдена"""
     def test_func_folder_not_found(self, capsys):
         test_input = """
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1156,6 +1233,7 @@ class TestDuplicateFinalNameError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1166,6 +1244,7 @@ class TestDuplicateFinalNameError(TestBaseDSL):
         (
             "case_2",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1190,6 +1269,7 @@ class TestExternalVarWriteError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1199,6 +1279,7 @@ class TestExternalVarWriteError(TestBaseDSL):
         (
             "case_2",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1222,6 +1303,7 @@ class TestGlobalVarWriteError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $my_var=1
@@ -1232,6 +1314,7 @@ class TestGlobalVarWriteError(TestBaseDSL):
         (
             "case_2",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             $my_var2="test"
@@ -1256,6 +1339,7 @@ class TestUndefinedGlobalVarError(TestBaseDSL):
         (
             "case_1",
             '''
+            lang=py
             source=dict/my_dict
             target1=dict/my_new_dict
             target1:
@@ -1272,3 +1356,58 @@ class TestUndefinedGlobalVarError(TestBaseDSL):
             partial_error="Глобальная переменная",
             partial_hint="Определите глобальную переменную выше по коду"
         )
+
+class TestLangMissingError(TestBaseDSL):
+    """Ошибка: не указан язык компиляции"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [field] -> [field](str)
+            '''
+        ),
+        (
+            "case_2",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [field] [field](str)
+            '''
+        ),
+    ], ids=["case_1", "case_2"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.MISSING_TARGET_LANG,
+            Messages.Hint.SUPPORTED_TARGET_LANGUAGES,
+            partial_error="Язык компиляции не указан"
+        )
+
+class TestLangUnsupportedError(TestBaseDSL):
+    """Ошибка: указан неподдерживаемый язык компиляции"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            lang=java
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [field] -> [field](str)
+            '''
+        ),
+    ], ids=["case_1"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.UNSUPPORTED_TARGET_LANG,
+            Messages.Hint.SUPPORTED_TARGET_LANGUAGES,
+            partial_error="Указан неподдерживаемый язык компиляции: java"
+        )
+

@@ -48,29 +48,25 @@ class Engine:
         """
         self._source = source
         self._debug = debug
-        self._lang = lang
+        self._lang = lang  # Только для локализации!
         self._color = color
         self._vars_folder = vars_folder
         self._func_folder = func_folder
-        
-        # Автоматически определяем, является ли source файлом
         self._is_file = self._detect_source_type(source)
-            
-        # Инициализация компонентов обработки DSL
+
+        # --- Новый блок: определяем язык функций из DSL ---
+        dsl_text = self._load_source() if not self._is_file else self._try_peek_file(self._source)
+        self._dsl_lang = self._extract_dsl_lang(dsl_text)
+        # --- конец нового блока ---
+
         self._lexer = Lexer()
-        self._available_funcs = self._collect_functions()
+        self._available_funcs = self._collect_functions(self._dsl_lang)
         self._parser = Parser()
         self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
         self._json_generator = JSONGenerator(vars_folder)
-        
-        # Результат обработки
         self._result = None
         self._text = None
-        
-        # Локализатор сообщений
         self._localizer = Localization(self._lang)
-        
-        # Обновляем локализацию в компонентах
         self._update_localization()
     
     def _detect_source_type(self, source: str) -> bool:
@@ -293,13 +289,6 @@ class Engine:
                 pr(traceback.format_exc(), file=sys.stderr)
             sys.exit(1)
             
-        except ValueError as e:
-            # Ошибки с неправильными значениями
-            pr(f"Ошибка: {str(e)}", file=sys.stderr)
-            if self._debug:
-                pr(traceback.format_exc(), file=sys.stderr)
-            sys.exit(1)
-            
         except Exception as e:
             # Все прочие ошибки
             pr(f"Ошибка при обработке DSL: {str(e)}", "red", file=sys.stderr)
@@ -377,26 +366,53 @@ class Engine:
         """
         return self._is_file 
     
-    def _collect_functions(self):
-        """Собирает имена функций из std_func и пользовательской папки, проверяет конфликты."""
+    def _extract_dsl_lang(self, text: str) -> str:
+        """Извлекает язык функций из DSL (lang=py/cpp/...), по умолчанию py."""
+        import re
+        match = re.search(r"lang\s*=\s*([a-zA-Z0-9_]+)", text)
+        return match.group(1).lower() if match else "py"
+
+    def _try_peek_file(self, path: str) -> str:
+        """Пробует прочитать первые 2-3 строки файла для поиска директивы lang=..."""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return "\n".join([next(f) for _ in range(3)])
+        except Exception:
+            return ""
+
+    def _collect_functions(self, dsl_lang="py"):
+        """Собирает имена функций из std_func/<lang> и пользовательской папки, проверяет конфликты."""
         import os
         from .localization import Messages as M
         from .localization import Localization
-        std_func_dir = os.path.join(os.path.dirname(__file__), "../std_func")
+
+        lang_map = {
+            "py": "python",
+            "python": "python",
+            "cpp": "cpp",
+            # можно добавить другие языки
+        }
+        lang_key = dsl_lang.lower()
+        lang_folder = lang_map.get(lang_key)
+        if not lang_folder:
+            # Локализованная ошибка
+            loc = Localization(getattr(self, '_lang', 'ru'))
+            pr(loc.get(M.Error.UNSUPPORTED_TARGET_LANG, lang=lang_key))
+            pr(loc.get(M.Hint.SUPPORTED_TARGET_LANGUAGES))
+            sys.exit(1)
+
+        std_func_dir = os.path.join(os.path.dirname(__file__), f"../std_func/{lang_folder}")
         std_func_dir = os.path.abspath(std_func_dir)
         std_funcs = set()
         user_funcs = set()
-        # Собираем стандартные функции
         if os.path.isdir(std_func_dir):
             for f in os.listdir(std_func_dir):
                 if f.endswith(".py") and not f.startswith("_"):
                     std_funcs.add(os.path.splitext(f)[0])
-        # Собираем пользовательские функции
         if self._func_folder and os.path.isdir(self._func_folder):
             for f in os.listdir(self._func_folder):
                 if f.endswith(".py") and not f.startswith("_"):
                     user_funcs.add(os.path.splitext(f)[0])
-        # Проверяем конфликты
         conflicts = std_funcs & user_funcs
         if conflicts:
             print_func_conflict_error(std_func_dir, self._func_folder, conflicts)

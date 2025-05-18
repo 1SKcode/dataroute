@@ -69,6 +69,8 @@ class Messages:
             "ru": ">R<Глобальная переменная '{var_name}' не определена>RS<",
             "en": ">R<Global variable '{var_name}' is not defined>RS<"
         }
+        MISSING_TARGET_LANG = {"ru": ">R<Язык компиляции не указан>RS<", "en": ">R<Compilation target language is not specified>RS<"}
+        UNSUPPORTED_TARGET_LANG = {"ru": ">R<Указан неподдерживаемый язык компиляции: {lang}>RS<", "en": ">R<Unsupported compilation target language: {lang}>RS<"}
 
     class Hint:
         LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
@@ -115,6 +117,7 @@ class Messages:
             "ru": "Определите глобальную переменную выше по коду: $my_var = ...",
             "en": "Define the global variable above: $my_var = ..."
         }
+        SUPPORTED_TARGET_LANGUAGES = {"ru": "Поддерживаемые языки компиляции: {languages}", "en": "Supported compilation target languages: {languages}"}
     class Debug:
         PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
         ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}

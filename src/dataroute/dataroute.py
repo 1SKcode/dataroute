@@ -4,7 +4,7 @@ dataroute - Гибкая ETL-система на Python с DSL для постр
 
 from typing import Dict, Any, Optional
 
-from ._impl import Engine
+from dsl_compiler._impl import Engine
 
 
 class DataRoute:

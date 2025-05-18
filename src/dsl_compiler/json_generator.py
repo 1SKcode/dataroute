@@ -5,7 +5,7 @@ import glob
 import re
 
 from .ast_nodes import ASTVisitor
-from .constants import PipelineItemType
+from .constants import PipelineItemType, TokenType
 from .localization import Localization, Messages as M
 from .config import Config
 from .mess_core import pr
@@ -158,6 +158,10 @@ class JSONGenerator(ASTVisitor):
     
     def visit_program(self, node):
         """Обход корневого узла программы"""
+        # Добавляем ключ языка компиляции, если указан
+        lang_token = next((tok for tok in getattr(node, 'tokens', []) if tok.type == TokenType.LANG), None)
+        if lang_token:
+            self.result['lang'] = lang_token.value
         self.target_info_map = getattr(node, '_targets', {})
         global_vars = getattr(node, '_global_vars', {})
         # Проверка дубликатов только по полному ключу type/name

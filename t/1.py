@@ -4,6 +4,7 @@ from dataroute import DataRoute
 
 def main():
     test_input = """
+            lang=py
             source=dict/my_dict
             norm=postgres/norm_data.norm_blocks
             $block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457

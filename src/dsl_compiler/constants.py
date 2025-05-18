@@ -16,6 +16,7 @@ class TokenType(Enum):
     CONDITION = auto()   # Условное выражение (if (exp) : (else))
     EVENT = auto()       # Событие (ROLLBACK, SKIP, NOTIFY)
     GLOBAL_VAR_USAGE = auto()   # Использование глобальной переменной в маршруте
+    LANG = auto()               # Язык компиляции (lang=py, lang=cpp)
 
 
 class NodeType(Enum):
@@ -72,6 +73,8 @@ class ErrorType(Enum):
     FUNC_CONFLICT = auto()  # Конфликт имён функций
     EXTERNAL_VAR_WRITE = auto()  # Попытка записи во внешнюю переменную
     GLOBAL_VAR_WRITE = auto()  # Попытка записи в глобальную переменную
+    MISSING_TARGET_LANG = auto()        # Язык компиляции не указан
+    UNSUPPORTED_TARGET_LANG = auto()    # Неподдерживаемый язык компиляции
 
 
 # ==============================================================
@@ -109,7 +112,9 @@ ERROR_MESSAGE_MAP = {
     ErrorType.FUNC_NOT_FOUND: M.Error.FUNC_NOT_FOUND,
     ErrorType.FUNC_CONFLICT: M.Error.FUNC_CONFLICT,
     ErrorType.EXTERNAL_VAR_WRITE: M.Error.EXTERNAL_VAR_WRITE,
-    ErrorType.GLOBAL_VAR_WRITE: M.Error.GLOBAL_VAR_WRITE
+    ErrorType.GLOBAL_VAR_WRITE: M.Error.GLOBAL_VAR_WRITE,
+    ErrorType.MISSING_TARGET_LANG: M.Error.MISSING_TARGET_LANG,
+    ErrorType.UNSUPPORTED_TARGET_LANG: M.Error.UNSUPPORTED_TARGET_LANG
 }
 
 # Связь между ErrorType и подсказками
@@ -140,7 +145,9 @@ ERROR_HINT_MAP = {
     ErrorType.FUNC_NOT_FOUND: M.Hint.FUNC_NOT_FOUND,
     ErrorType.FUNC_CONFLICT: M.Hint.FUNC_CONFLICT,
     ErrorType.EXTERNAL_VAR_WRITE: M.Hint.EXTERNAL_VAR_WRITE,
-    ErrorType.GLOBAL_VAR_WRITE: M.Hint.GLOBAL_VAR_WRITE
+    ErrorType.GLOBAL_VAR_WRITE: M.Hint.GLOBAL_VAR_WRITE,
+    ErrorType.MISSING_TARGET_LANG: M.Hint.SUPPORTED_TARGET_LANGUAGES,
+    ErrorType.UNSUPPORTED_TARGET_LANG: M.Hint.SUPPORTED_TARGET_LANGUAGES
 }
 
 
@@ -169,6 +176,9 @@ PATTERNS = {
     
     # Использование глобальной переменной в маршруте: [$my_var] -> [A](int)
     TokenType.GLOBAL_VAR_USAGE: r'^\s*\[\$([a-zA-Z][a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>|>>).*',
+    
+    # Определение языка компиляции: lang=py, lang=cpp
+    TokenType.LANG: r'lang\s*=\s*([a-zA-Z_][a-zA-Z0-9_]*)$',
 } 
 
 # ==============================================================
@@ -193,3 +203,6 @@ ALLOWED_TYPES = [
     "bytes",    # Бинарные данные
     "any"       # Любой тип
 ] 
+
+# Список поддерживаемых языков компиляции
+SUPPORTED_TARGET_LANGUAGES = ["py", "cpp", "python"] 
