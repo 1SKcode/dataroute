@@ -18,8 +18,14 @@ class Messages:
         DIRECT_MAPPING_WITHOUT_STAR = {"ru": ">O<Предупреждение:>RS< Обнаружено прямое отображение [{src}] -> |{value}| без *. Возможно, вы забыли поставить * перед именем функции?", "en": ">O<Warning:>RS< Direct mapping [{src}] -> |{value}| without * detected. Did you forget to add * before function name?"}
 
     class Error:
-        PIPELINE_CLOSING_BAR = {"ru": ">R<Закрывающая прямая черта пайплайна не найдена>RS<", "en": ">R<Pipeline closing bar is missing>RS<"}
-        BRACKET_MISSING = {"ru": ">R<Квадратная скобка определения сущности не найдена>RS<", "en": ">R<Entity definition bracket is missing>RS<"}
+        PIPELINE_CLOSING_BAR = {
+            "ru": ">R<Закрывающая прямая черта пайплайна не найдена>RS<",
+            "en": ">R<Pipeline closing bar is missing>RS<"
+        }
+        BRACKET_MISSING = {
+            "ru": ">R<Квадратная скобка определения сущности не найдена>RS<",
+            "en": ">R<Entity definition bracket is missing>RS<"
+        }
         FLOW_DIRECTION = {"ru": ">R<Символ направляющего потока не найден. Используйте ->, =>, - или >", "en": ">R<Flow direction symbol is missing. Use ->, =>, - or >"}
         FINAL_TYPE = {"ru": ">R<Финальный тип не задан или задан некорректно>RS<", "en": ">R<Final type is not specified or incorrectly specified>RS<"}
         VOID_TYPE = {"ru": ">R<Для пустого поля [] нельзя указывать тип>RS<", "en": ">R<Empty field [] cannot have a type specification>RS<"}
@@ -51,6 +57,18 @@ class Messages:
         FUNC_NOT_FOUND = {"ru": ">R<Функция не найдена:>RS< {func_name}", "en": ">R<Function not found:>RS< {func_name}"}
         FUNC_CONFLICT = {"ru": ">R<Конфликт имён функций:>RS< {func_name}. Уже определена в системной и пользовательской папках.", "en": ">R<Function name conflict:>RS< {func_name}. Already defined in both system and user folders."}
         FUNC_FOLDER_NOT_FOUND = {"ru": ">R<Папка с пользовательскими функциями не найдена:>RS< {folder}", "en": ">R<User function folder not found:>RS< {folder}"}
+        EXTERNAL_VAR_WRITE = {
+            "ru": ">R<Нельзя записывать во внешнюю переменную:>RS< {var_name}",
+            "en": ">R<You cannot write to an external variable:>RS< {var_name}"
+        }
+        GLOBAL_VAR_WRITE = {
+            "ru": ">R<Нельзя записывать в глобальную переменную:>RS< {var_name}",
+            "en": ">R<You cannot write to a global variable:>RS< {var_name}"
+        }
+        UNDEFINED_GLOBAL_VAR = {
+            "ru": ">R<Глобальная переменная '{var_name}' не определена>RS<",
+            "en": ">R<Global variable '{var_name}' is not defined>RS<"
+        }
 
     class Hint:
         LABEL = {"ru": ">G<Возможное решение:>RS<", "en": ">G<Possible solution:>RS<"}
@@ -85,6 +103,18 @@ class Messages:
         FUNC_NOT_FOUND = {"ru": "Проверьте имя функции и наличие файла с именем {func_name} в указанной вами папке: >Y<{func_folder}>RS<", "en": "Check the function name and the presence of a file named {func_name} in the specified folder: >Y<{func_folder}>RS<"}
         FUNC_CONFLICT = {"ru": "Переименуйте пользовательскую функцию или удалите конфликтующий файл: {func_name}", "en": "Rename the user function or remove the conflicting file: {func_name}"}
         FUNC_FOLDER_NOT_FOUND = {"ru": "Проверьте путь к папке с функциями или создайте её.", "en": "Check the function folder path or create it."}
+        EXTERNAL_VAR_WRITE = {
+            "ru": "Используйте только локальные переменные или обычные цели для записи",
+            "en": "Use only local variables or regular targets for writing"
+        }
+        GLOBAL_VAR_WRITE = {
+            "ru": "Используйте уникальное имя для переменной назначения или обычную цель",
+            "en": "Use a unique name for the target variable or a regular target"
+        }
+        UNDEFINED_GLOBAL_VAR = {
+            "ru": "Определите глобальную переменную выше по коду: $my_var = ...",
+            "en": "Define the global variable above: $my_var = ..."
+        }
     class Debug:
         PARSING_ROUTE_BLOCK = {"ru": "Разбор блока маршрутов для {target}", "en": "Parsing route block for {target}"}
         ROUTE_PROCESSING = {"ru": "Обработка маршрутов для цели: {target}", "en": "Processing routes for target: {target}"}

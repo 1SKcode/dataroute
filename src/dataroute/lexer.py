@@ -223,6 +223,15 @@ class Lexer:
                 pr(M.Debug.TOKEN_CREATED, type=TokenType.ROUTE_LINE.name, value=route_info)
                 matched = True
             
+            # Строка маршрута с использованием глобальной переменной
+            if not matched:
+                match = re.match(PATTERNS[TokenType.GLOBAL_VAR_USAGE], original_line)
+                if match:
+                    var_name = match.group(1)
+                    self.tokens.append(Token(TokenType.GLOBAL_VAR_USAGE, {"var_name": var_name, "line": original_line}, line_num))
+                    pr(M.Debug.TOKEN_CREATED, type=TokenType.GLOBAL_VAR_USAGE.name, value={"var_name": var_name, "line": original_line})
+                    matched = True
+            
             if not matched:
                 error = self.error_handler.analyze(line, line_num)
                 # Выводим ошибку и прерываем выполнение

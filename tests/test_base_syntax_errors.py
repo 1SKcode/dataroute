@@ -529,10 +529,10 @@ class TestDuplicateVarNameErrors(TestBaseDSL):
         )
 
 class TestDuplicateTargetNameTypeError(TestBaseDSL):
-    """Дублирующееся имя цели (DUPLICATE_TARGET_NAME_TYPE)"""
+    """Дублирующееся имя целевого блока (DUPLICATE_TARGET_NAME_TYPE)"""
     @pytest.mark.parametrize("test_id, test_case", [
         (
-            "same_type_same_name",
+            "case_1",
             '''
             source=dict/my_dict
             target1=postgres/my_new_dict
@@ -543,7 +543,7 @@ class TestDuplicateTargetNameTypeError(TestBaseDSL):
                 [pointA] -> |*func1()| -> [$s](int)
             '''
         ),
-    ], ids=["same_type_same_name"])
+    ], ids=["case_1"])
     def test_start(self, capsys, test_id, test_case):
         self.run_test(
             capsys,
@@ -614,7 +614,48 @@ class TestNotDefinedVarErrors(TestBaseDSL):
                 [pointA] -> |IF(1): *func1 ELIF($not_defined): *func2 ELSE: *func3(343)| -> [pointB](int)
             """
         ),
-    ], ids=["case_1", "case_2", "case_3", "case_4", "case_5", "case_6"])
+        (
+            "case_7",
+            """
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            $defined=1
+            target1:
+                [pointA] -> |*func1($defined, $not_defined2)| -> [pointB](int)
+            """
+        ),
+        (
+            "case_8",
+            """
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            $defined=1
+            $defined2=2
+            target1:
+                [pointA] -> |*func1($defined, $defined2, $not_defined2)| -> [pointB](int)
+            """
+        ),        
+        (
+            "case_9",
+            """
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [pointA] -> |*func1(1000, "sdfds", $not_defined3)| -> [pointB](int)
+            """
+        ),
+        (
+            "case_10",
+            """
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [pointA] -> [pointB](int)
+                [pointC] -> |*func1($pointB)| -> [pointD](int)
+                [pointE] -> |*func1($pointB, $pointAAAAAAAAA)| -> [pointF](int)
+            """
+        ),
+    ], ids=["case_1", "case_2", "case_3", "case_4", "case_5", "case_6", "case_7", "case_8", "case_9", "case_10"])
     def test_start(self, capsys, test_id, test_case):
         self.run_test(
             capsys,
@@ -857,7 +898,7 @@ class TestIfEmptyExpression(TestBaseDSL):
         )
 
 class TestIfMissingColon(TestBaseDSL):
-    """IF без двоеточия"""
+    """Условная конструкция без двоеточия"""
     @pytest.mark.parametrize("test_id, test_case", [
         (
             "case_1",
@@ -897,7 +938,18 @@ class TestIfMissingColon(TestBaseDSL):
                 [pointE] -> |IF(1): *func1 ELIF(2): *func1 ELIF(3): *s1 ELIF(4) *func1 ELSE: *s1| -> [pointF](int)
             """
         ),
-    ], ids=["case_1", "case_2", "case_3", "case_4"])
+        (
+            "case_5",
+            """
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            $myvar = 1000
+            target1:
+                [A] -> |IF($$myvars.name == "test"): *func1($$myvars.items, $$myvars.name)|-> [B](str)
+                [C] -> |IF("test"): *func1($$myvars.items, $$myvars.name) ELSE *s1($myvar)|-> [D](str)
+            """
+        ),
+    ], ids=["case_1", "case_2", "case_3", "case_4", "case_5"])
     def test_start(self, capsys, test_id, test_case):
         self.run_test(
             capsys,
@@ -1097,3 +1149,126 @@ class TestFuncFolderNotFound:
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Папка с пользовательскими функциями не найдена" in output
         assert "Проверьте путь к папке с функциями" in output
+
+class TestDuplicateFinalNameError(TestBaseDSL):
+    """Дублирующееся финальное имя (final_name) внутри одного блока target"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [A] -> [$A](int)
+                [B] -> [$A](int)
+            '''
+        ),
+        (
+            "case_2",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [A] -> [A](int)
+                [B] -> [A](int)
+            '''
+        ),
+    ], ids=["case_1", "case_2"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.DUPLICATE_FINAL_NAME,
+            Messages.Hint.DUPLICATE_FINAL_NAME,
+            partial_error="Дублирующееся имя финальной цели",
+            partial_hint="Цель уже используется для записи"
+        )
+
+class TestExternalVarWriteError(TestBaseDSL):
+    """Нельзя записывать во внешнюю переменную ($$)"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [A] -> [$$name](int)
+            '''
+        ),
+        (
+            "case_2",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [A] -> |*func1| -> [$$var](str)
+            '''
+        ),
+    ], ids=["case_1", "case_2"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.EXTERNAL_VAR_WRITE,
+            Messages.Hint.EXTERNAL_VAR_WRITE,
+            partial_error="Нельзя записывать во внешнюю переменную",
+            partial_hint="Используйте только локальные переменные"
+        )
+
+class TestGlobalVarWriteError(TestBaseDSL):
+    """Нельзя записывать в глобальную переменную ($my_var)"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            $my_var=1
+            target1:
+                [A] -> [$my_var](int)
+            '''
+        ),
+        (
+            "case_2",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            $my_var2="test"
+            target1:
+                [A] -> |*func1| -> [$my_var2](str)
+            '''
+        ),
+    ], ids=["case_1", "case_2"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.GLOBAL_VAR_WRITE,
+            Messages.Hint.GLOBAL_VAR_WRITE,
+            partial_error="Нельзя записывать в глобальную переменную",
+            partial_hint="Используйте уникальное имя для переменной назначения"
+        )
+
+class TestUndefinedGlobalVarError(TestBaseDSL):
+    """Глобальная переменная не определена"""
+    @pytest.mark.parametrize("test_id, test_case", [
+        (
+            "case_1",
+            '''
+            source=dict/my_dict
+            target1=dict/my_new_dict
+            target1:
+                [$my_var2] -> [A](int)
+            '''
+        ),
+    ], ids=["case_1"])
+    def test_start(self, capsys, test_id, test_case):
+        self.run_test(
+            capsys,
+            test_case,
+            Messages.Error.UNDEFINED_GLOBAL_VAR,
+            Messages.Hint.UNDEFINED_GLOBAL_VAR,
+            partial_error="Глобальная переменная",
+            partial_hint="Определите глобальную переменную выше по коду"
+        )

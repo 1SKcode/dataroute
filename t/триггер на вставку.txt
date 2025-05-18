@@ -1,0 +1,149 @@
+-- DROP FUNCTION fids_raw_data.after_insert_flats();
+
+CREATE OR REPLACE FUNCTION fids_raw_data.after_insert_flats()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+	BEGIN
+	INSERT INTO norm_data.norm_flats(
+	"timestamp", 
+--	flat_id, -- id квартиры
+	online,
+    is_euro,
+--	block_id, -- id ЖК
+--	building_id, -- id корпуса ЖК
+	room, -- тип квартиры спарвочник flats_type
+	status, -- статус - продана или свободна
+	section_name, -- название или номер секции
+	price, -- цена 
+	price_base, -- базовая цена	
+	area_total, -- общая площадь
+	area_given, -- жилая площадь
+	area_kitchen, -- площадь квартиры
+	number, -- номер квартиры
+	floor_of_flat, -- этаж квартиры
+	tags, -- теги
+	plan_url, -- планировка квартиры
+	floor_plan_url, -- поэтажная планировка
+    finishing, -- отделка
+	flats_uuid, -- uuid квартиры
+	flats_type_uuid, -- uuid типа квартиры 
+	floors_in_section, -- 
+	building_uuid, -- uuid корпуса ЖК
+	block_uuid, -- uuid ЖК
+    uuid_real_estate_type) -- uuid ОН(объекта недвижимости)
+	SELECT 
+	(now() + interval '3m')::timestamp::text,
+--	id, 
+	true,
+    case
+    when new.is_euro in('1','true', 'True') then true
+    else false
+    end, 
+--	block_id, 
+--	building_id, 
+	replace((select case 
+    when new.block_uuid = 'f49f5e6b-67f1-4596-a4f8-5f27f1f5f457' and new.rooms = '9' then '0'
+    else new.rooms 
+    end), 'None', '0') rooms, 
+	'Свободна',
+	case when section = '' then 'Нет секции'
+	else section
+	end section,
+    CASE
+    WHEN new.price_sale = '' OR new.price_sale = '0' THEN new.price_base::bigint
+    ELSE new.price_sale::bigint
+    END,
+	-- case when new.price_sale = '' then 0 
+	new.price_base::bigint,
+	cast( new.area_total as double precision), 
+	cast(new.area_living as double precision) , 
+	cast(new.area_kitchen as double precision) ,  
+	case 
+		 when new.number = null then '-'
+		 else new.number
+	     end,
+	case when new.floor = '' then 0
+	else new.floor::bigint 
+	end as floor, 
+	CASE
+        WHEN new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN 'Апартаменты'
+        WHEN new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'Квартира'
+        WHEN new.type IN ('гараж', 'Паркинг', 'parking', 'Парковка', 'Машиноместо', 'паркинг', 'Машино-место') THEN 'Машино-место'
+        WHEN new.type IN ('Вилла', 'Загородная недвижимость', 'house') THEN 'Загородная недвижимость'
+        WHEN new.type IN ('Таунхаус') THEN 'Таунхаус'
+        WHEN new.type IN ('non-residential', 'Кладовая', 'Кладовка') THEN 'Кладовка'
+        WHEN new.type IN ('Коммерция', 'Коммерческая недвижимость', 'Коммерческое помещение', 'Торговое помещение') THEN 'Коммерческая недвижимость'
+        ELSE NULL
+    END AS tags,
+	new.plans_flat,
+	new.plans_floor,
+    CASE
+        WHEN new.finising IN ('Без стен') THEN 'Без стен'
+        WHEN new.finising IN ('без отделки', 'Без отделки', 'нет', 'Нет', 'черновая', 'Черновая', 'черновая отделка', 
+                              'without', 'preFine', 'Улучшенная черновая', 'rough') THEN 'Без отделки'
+        WHEN new.finising IN ('Полная отделка', 'Чистовая', 'чистовая отделка', 'Чистовая отделка', 
+                              'Белая отделка', 'MR Ready', 'Премиум', 'fine', 'С ремонтом', 'Дизайнерский ремонт', 
+                              'Бизнес', 'С отделкой') THEN 'Чистовая отделка'
+        WHEN new.finising IN ('С мебелью', 'fineWithFurniture', 'turnkey', 'Чистовая отделка с мебелью') THEN 'С мебелью'
+        WHEN new.finising IN ('предчистовая', ' Предчистовая', 'Предчистовая', 'предчистовая отделка', 'Предчистовая отделка', 
+                              'MR Base', 'White box', 'Whitebox', 'White Box', 'Отделка White box', 'WhiteBox' 
+                              'серый ключ', 'Отделка White Box') THEN 'Предчистовая отделка'
+        ELSE NULL
+    END AS finising,
+	new.uuid,
+	CASE
+        WHEN new.block_uuid = 'f49f5e6b-67f1-4596-a4f8-5f27f1f5f457' AND new.rooms = '9' THEN '019f2104-628f-468a-a368-2df80e0b3247'::uuid
+        WHEN new.block_uuid = '04c6223f-24fc-412b-bf49-2adcd8ddccc8' AND new.rooms = '1' THEN '019f2104-628f-468a-a368-2df80e0b3247'::uuid
+        WHEN new.block_uuid = '04c6223f-24fc-412b-bf49-2adcd8ddccc8' AND new.rooms = '2' THEN 'b35e9518-4d9d-4e58-8b4a-51d7aa42d7ec'::uuid
+        WHEN new.block_uuid = '04c6223f-24fc-412b-bf49-2adcd8ddccc8' AND new.rooms = '3' THEN '8c89d8c7-7ea0-4412-a0cb-44cb12914309'::uuid
+        WHEN new.block_uuid = '04c6223f-24fc-412b-bf49-2adcd8ddccc8' AND new.rooms = '4' THEN '1102e5b0-cc60-45dc-bc86-520c1f48f085'::uuid
+        WHEN new.block_uuid = '04c6223f-24fc-412b-bf49-2adcd8ddccc8' AND new.rooms = '5' THEN '80033d77-b52a-44b9-a630-8f5243b93553'::uuid
+        WHEN new.rooms = '0' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '019f2104-628f-468a-a368-2df80e0b3247'::uuid
+        WHEN new.rooms = '1' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'b35e9518-4d9d-4e58-8b4a-51d7aa42d7ec'::uuid
+        WHEN new.rooms = '2' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '8c89d8c7-7ea0-4412-a0cb-44cb12914309'::uuid
+        WHEN new.rooms = '3' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '1102e5b0-cc60-45dc-bc86-520c1f48f085'::uuid
+        WHEN new.rooms = '4' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '80033d77-b52a-44b9-a630-8f5243b93553'::uuid
+        WHEN new.rooms = '5' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'e03ab11a-1d40-459e-8918-69d2a72f19bb'::uuid
+        WHEN new.rooms = '6' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'b1e0f483-af4a-4e22-9944-2e49dd148303'::uuid
+        WHEN new.rooms = '7' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'f61066c2-9dc4-49d8-93fd-485f979450dc'::uuid
+        WHEN new.rooms = '8' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '41acd6ed-b2a9-48da-b9e7-a45b7d645402'::uuid
+        WHEN new.rooms = '9' and new.type IN ('flat', 'квартира', 'Квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN 'c2e97799-25d6-459e-a88c-ff16eee1f3a2'::uuid
+        WHEN new.rooms = '0' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '362b73de-c175-4479-a76c-c2ee422b89f5'::uuid
+        WHEN new.rooms = '1' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '84203563-c482-45ee-8388-4968fa947834'::uuid
+        WHEN new.rooms = '2' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '6f6a9f85-bfb6-4785-acb8-d0877124ee49'::uuid
+        WHEN new.rooms = '3' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN 'aacf7549-1286-421c-8280-a5ea73729e56'::uuid
+        WHEN new.rooms = '4' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '9cf2f8f2-b42a-459a-bd37-8d0bd053a6db'::uuid
+        WHEN new.rooms = '5' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN 'f7e3fbcc-98dc-4cfa-a799-e63c14c00690'::uuid
+        WHEN new.rooms = '6' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN 'a3be9f2b-5b1a-4a25-bbb7-956a73a0b469'::uuid
+        WHEN new.rooms = '7' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN 'dfde23eb-a9ba-49b3-8ac2-6481864b6f51'::uuid
+        WHEN new.rooms = '8' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '0a060ad3-06ae-4135-935a-0fc5088ff92c'::uuid
+        WHEN new.rooms = '9' and new.type IN ('apartment', 'Апартамент', 'Apartment', 'апартаменты', 'Апартаменты', 'Аппартаменты', 'Гостиничный номер') THEN '9711fe08-37c2-441b-b5fc-c8b5c79749e5'::uuid
+        WHEN new.rooms = 'Помещение свободного назначения'  THEN 'e9fff4ac-7a8d-445c-90e7-b5111bf41f99'::uuid
+        WHEN new.rooms = 'Торговое помещение'  THEN '4bf12c13-75cd-4eba-9f85-06f2394cc4ee'::uuid
+        WHEN new.rooms = 'Офисное помещение'  THEN '7e8ae9e7-6853-4f77-914e-42552670f965'::uuid
+END AS flats_type_uuid, -- uuid типа квартиры и апартаментов
+	new.floors_in_section::bigint, 
+	new.building_uuid,
+	new.block_uuid,
+    CASE
+        WHEN new.type IN ('apartment', 'Апартамент', 'апартаменты', 'Аппартаменты', 'Апартаменты', 'Гостиничный номер') THEN '1fc784b5-639c-4777-91ce-da6324ba59f7'::uuid
+        WHEN new.type IN ('flat', 'Квартира', 'квартира', 'жилая', 'Пентхаус', 'студия', 'Студия', 'residential', 'Резиденция', 'Свободная планировка') THEN '9f866b12-2848-4b60-b754-811212ce8657'::uuid
+        WHEN new.type IN ('гараж', 'Паркинг', 'parking', 'Парковка', 'Машиноместо', 'паркинг', 'Машино-место') THEN '53108344-b451-4f8f-87c7-27b9d8337eb6'::uuid
+        WHEN new.type IN ('Вилла', 'Загородная недвижимость', 'house') THEN '82884858-ce63-4e1a-8356-1b9ce5afbbd9'::uuid
+        WHEN new.type IN ('Таунхаус') THEN 'bfeaa7a8-f415-4a80-8c11-f88e55c3a9c9'::uuid
+        WHEN new.type IN ('non-residential', 'Кладовая', 'Кладовка') THEN '25a2ed59-3178-4f0a-92fe-36f4e7d9c221'::uuid
+        WHEN new.type IN ('Коммерция', 'Коммерческая недвижимость', 'Коммерческое помещение', 'Торговое помещение') THEN '97852a12-6ba2-4b98-879e-6277a9d780f9'::uuid
+        ELSE NULL
+    END AS uuid_real_estate_type -- uuid тип ОН(объект недвижимости)
+	FROM fids_raw_data.flats
+	where new.price_base is not null and new.price_sale is not null
+    and (new.plans_flat is not null or new.plans_flat <> '')
+    
+	on conflict do nothing;
+	
+	
+	return new;
+	END;
+$function$
+;

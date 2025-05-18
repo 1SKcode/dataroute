@@ -95,7 +95,6 @@ class TestDoubleTarget:
                             "1": {
                                 "type": "py_func",
                                 "param": "",
-                                "external_var": {"is_external_var": False, "value": None},
                                 "full_str": "*func1()"
                             }
                         },
@@ -113,7 +112,6 @@ class TestDoubleTarget:
                             "1": {
                                 "type": "py_func",
                                 "param": "",
-                                "external_var": {"is_external_var": False, "value": None},
                                 "full_str": "*func1()"
                             }
                         },
@@ -129,7 +127,7 @@ class TestDoubleTarget:
 
 
 class TestManyTargets:
-    """Много целей с одинаковым именем, но разными типами"""
+    """Много целей с одинаковым именем"""
     def test_many_targets(self):
         test_case = """
         source=dict/my_dict
@@ -174,7 +172,6 @@ class TestManyTargets:
                             "1": {
                                 "type": "py_func",
                                 "param": "",
-                                "external_var": {"is_external_var": False, "value": None},
                                 "full_str": "*func1()"
                             }
                         },
@@ -187,5 +184,272 @@ class TestManyTargets:
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
         result = dtrt.go()
         assert result == expected_result
+
+
+class TestVoidField:
+    """Проверка void-полей (пустые скобки)"""
+    def test_void_field(self):
+        test_case = """
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        target1:
+            [] -> |*func1()| -> [$d](int)
+            [] -> [A](int)
+            [] -> [B](int)
+        """
+        expected_result = {
+            "dict/my_new_dict": {
+                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "target_type": {"type": "dict", "name": "my_new_dict"},
+                "routes": {
+                    "__void1": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "",
+                                "full_str": "*func1()"
+                            }
+                        },
+                        "final_type": "int",
+                        "final_name": "$d"
+                    },
+                    "__void2": {
+                        "pipeline": None,
+                        "final_type": "int",
+                        "final_name": "A"
+                    },
+                    "__void3": {
+                        "pipeline": None,
+                        "final_type": "int",
+                        "final_name": "B"
+                    }
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result
+
+
+class TestVoidTargetField:
+    """Проверка маршрутов с пустым target-полем ([]() и [])"""
+    def test_void_target_field(self):
+        test_case = """
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        target1:
+            [A] -> []()
+            [B] -> []
+        """
+        expected_result = {
+            "dict/my_new_dict": {
+                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "target_type": {"type": "dict", "name": "my_new_dict"},
+                "routes": {
+                    "A": {
+                        "pipeline": None,
+                        "final_type": None,
+                        "final_name": None
+                    },
+                    "B": {
+                        "pipeline": None,
+                        "final_type": None,
+                        "final_name": None
+                    }
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result
+
+
+class TestParamThisEquivalence:
+    """Параметр $this для |*s1|, |*s1($C)|, |*s1($this)|"""
+    def test_param_this_equivalence(self):
+        test_case = """
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        target1:
+            [A] -> |*s1| -> [B](str)
+            [C] -> |*s1($C)| -> [D](str)
+            [E] -> |*s1($this)| -> [F](str)
+        """
+        expected_result = {
+            "dict/my_new_dict": {
+                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "target_type": {"type": "dict", "name": "my_new_dict"},
+                "routes": {
+                    "A": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "B"
+                    },
+                    "C": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1($C)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "D"
+                    },
+                    "E": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1($this)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "F"
+                    }
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result, "param должен быть $this для всех трёх вариантов"
+
+
+class TestExternalVarInPythonParams:
+    """Проверка передачи внешних переменных и литералов в параметры python-функции"""
+    def test_external_var_in_python_params(self):
+        test_case = """
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        target1:
+            [A] -> |*func1($$myvars.items, $$myvars.name)|-> [B](str)
+            [C] -> |*func1(\"test\", 1000, True)|-> [D](str)
+        """
+        expected_result = {
+            "dict/my_new_dict": {
+                "sourse_type": {
+                    "type": "dict",
+                    "name": "my_dict"
+                },
+                "target_type": {
+                    "type": "dict",
+                    "name": "my_new_dict"
+                },
+                "routes": {
+                    "A": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": '["one", "two", "three"], test',
+                                "full_str": "*func1($$myvars.items, $$myvars.name)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "B"
+                    },
+                    "C": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": '\"test\", 1000, True',
+                                "full_str": '*func1("test", 1000, True)'
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "D"
+                    }
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, vars_folder="tests/ext_vars", debug=True, lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result
+
+
+class TestGlobalVarInPythonParams:
+    """Проверка подстановки глобальных переменных в параметры python-функций и условия"""
+    def test_global_var_in_python_params(self):
+        test_case = """
+        source=dict/my_dict
+        target1=dict/my_new_dict
+        $myvar = 1000
+        $myvar2 = "test"
+        target1:
+            [a] -> |*func1($myvar)|-> [b](str)
+            [A] -> |IF($myvar2 == "test"): *func1($myvar) ELSE: *s1($myvar2)|-> [B](str)
+        """
+        expected_result = {
+            "dict/my_new_dict": {
+                "sourse_type": {
+                    "type": "dict",
+                    "name": "my_dict"
+                },
+                "target_type": {
+                    "type": "dict",
+                    "name": "my_new_dict"
+                },
+                "routes": {
+                    "a": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "1000",
+                                "full_str": "*func1($myvar)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "b"
+                    },
+                    "A": {
+                        "pipeline": {
+                            "1": {
+                                "type": "condition",
+                                "sub_type": "if_else",
+                                "full_str": "IF($myvar2 == \"test\"): *func1($myvar) ELSE: *s1($myvar2)",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "test == \"test\""
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "1000",
+                                        "full_str": "*func1($myvar)"
+                                    }
+                                },
+                                "else": {
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "test",
+                                        "full_str": "*s1($myvar2)"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "B"
+                    }
+                }
+            },
+            "global_vars": {
+                "myvar": {
+                    "type": "int",
+                    "value": 1000
+                },
+                "myvar2": {
+                    "type": "str",
+                    "value": "test"
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result, f"Неверный результат для теста с глобальными переменными!\n{result}"
 
 

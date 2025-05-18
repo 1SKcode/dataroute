@@ -15,6 +15,7 @@ class TokenType(Enum):
     COMMENT = auto()      # Комментарий (# ...)
     CONDITION = auto()   # Условное выражение (if (exp) : (else))
     EVENT = auto()       # Событие (ROLLBACK, SKIP, NOTIFY)
+    GLOBAL_VAR_USAGE = auto()   # Использование глобальной переменной в маршруте
 
 
 class NodeType(Enum):
@@ -69,6 +70,8 @@ class ErrorType(Enum):
     CONDITION_INVALID = auto()  # Недопустимое или неправильное условное выражение
     FUNC_NOT_FOUND = auto()  # Функция не найдена
     FUNC_CONFLICT = auto()  # Конфликт имён функций
+    EXTERNAL_VAR_WRITE = auto()  # Попытка записи во внешнюю переменную
+    GLOBAL_VAR_WRITE = auto()  # Попытка записи в глобальную переменную
 
 
 # ==============================================================
@@ -104,7 +107,9 @@ ERROR_MESSAGE_MAP = {
     ErrorType.CONDITION_MISSING_COLON: M.Error.CONDITION_MISSING_COLON,
     ErrorType.CONDITION_INVALID: M.Error.CONDITION_INVALID,
     ErrorType.FUNC_NOT_FOUND: M.Error.FUNC_NOT_FOUND,
-    ErrorType.FUNC_CONFLICT: M.Error.FUNC_CONFLICT
+    ErrorType.FUNC_CONFLICT: M.Error.FUNC_CONFLICT,
+    ErrorType.EXTERNAL_VAR_WRITE: M.Error.EXTERNAL_VAR_WRITE,
+    ErrorType.GLOBAL_VAR_WRITE: M.Error.GLOBAL_VAR_WRITE
 }
 
 # Связь между ErrorType и подсказками
@@ -133,7 +138,9 @@ ERROR_HINT_MAP = {
     ErrorType.CONDITION_MISSING_COLON: M.Hint.CONDITION_MISSING_COLON,
     ErrorType.CONDITION_INVALID: M.Hint.CONDITION_INVALID,
     ErrorType.FUNC_NOT_FOUND: M.Hint.FUNC_NOT_FOUND,
-    ErrorType.FUNC_CONFLICT: M.Hint.FUNC_CONFLICT
+    ErrorType.FUNC_CONFLICT: M.Hint.FUNC_CONFLICT,
+    ErrorType.EXTERNAL_VAR_WRITE: M.Hint.EXTERNAL_VAR_WRITE,
+    ErrorType.GLOBAL_VAR_WRITE: M.Hint.GLOBAL_VAR_WRITE
 }
 
 
@@ -158,7 +165,10 @@ PATTERNS = {
     TokenType.COMMENT: r'#(.*)',
     
     # Строка маршрута с отступом: [id] -> |*s1| -> [external_id](str))
-    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>|>>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>|>>)\s*)?\[([$a-zA-Z0-9_]*)\](?:\(([a-zA-Z0-9_]+)\))?'
+    TokenType.ROUTE_LINE: r'^\s*\[([a-zA-Z0-9_.]*)\]\s*(?:->|=>|-|>|>>)\s*(?:(\|[^|]*(?:\|[^|]*)*\|)\s*(?:->|=>|-|>|>>)\s*)?\[([$a-zA-Z0-9_.]*)\](?:\(([a-zA-Z0-9_]+)\))?',
+    
+    # Использование глобальной переменной в маршруте: [$my_var] -> [A](int)
+    TokenType.GLOBAL_VAR_USAGE: r'^\s*\[\$([a-zA-Z][a-zA-Z0-9_]*)\]\s*(?:->|=>|-|>|>>).*',
 } 
 
 # ==============================================================

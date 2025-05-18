@@ -16,6 +16,7 @@ class JSONGenerator(ASTVisitor):
     """Посетитель для генерации JSON из AST"""
     
     def __init__(self, vars_folder: str = None):
+        super().__init__()
         self.result = {}
         self.source_type = None
         self.current_target = None
@@ -178,6 +179,16 @@ class JSONGenerator(ASTVisitor):
                 )
             type_name_keys.add(type_name_key)
             self.target_name_map[name] = type_name_key
+        # Обработка использования глобальных переменных в маршрутах
+        for token in getattr(node, 'tokens', []):
+            if hasattr(token, 'type') and hasattr(token, 'value') and token.type.name == "GLOBAL_VAR_USAGE":
+                var_name = token.value["var_name"]
+                # Формируем JSON как требуется
+                self.result[f"__GLOBVAR__{var_name}"] = {
+                    "pipeline": None,
+                    "final_type": None,
+                    "final_name": None
+                }
         for child in node.children:
             child.accept(self)
         if self.global_vars:
@@ -242,11 +253,30 @@ class JSONGenerator(ASTVisitor):
         
         # Добавляем маршрут в результат
         if self.current_target in self.result:
-            self.result[self.current_target]["routes"][route_key] = {
+            # Новый маршрут для добавления
+            new_route = {
                 "pipeline": pipeline,
                 "final_type": target_field_type,
                 "final_name": target_field
             }
+            
+            # Проверяем, существует ли уже маршрут с таким ключом
+            routes = self.result[self.current_target]["routes"]
+            
+            if route_key in routes:
+                # Если ключ уже существует
+                existing_route = routes[route_key]
+                
+                # Если это первый дубликат, преобразуем существующий маршрут в список
+                if not isinstance(existing_route, list):
+                    # Сохраняем существующий маршрут как первый элемент списка
+                    routes[route_key] = [existing_route]
+                
+                # Добавляем новый маршрут в список
+                routes[route_key].append(new_route)
+            else:
+                # Если это первый маршрут с таким ключом, добавляем как обычно
+                routes[route_key] = new_route
             
             # Для вывода сообщения корректно обрабатываем None значения
             display_target = target_field if target_field is not None else "None"
@@ -278,100 +308,62 @@ class JSONGenerator(ASTVisitor):
     def visit_func_call(self, node):
         """Обход вызова функции"""
         param = node.params.get("param", "$this")
-        is_external_var = node.params.get("is_external_var", False)
-        
-        # Словарь с информацией о внешней переменной
-        external_var = {
-            "is_external_var": is_external_var,
-            "value": None
-        }
-        
-        # Строгая проверка внешних переменных
-        if is_external_var and param.startswith('$$'):
-            # Проверка доступности внешней переменной
-            try:
-                # Передаем узел для контекста ошибки
-                external_value = self.get_external_var_value(param, node_context=node)
-                if external_value is None:
-                    raise ValueError(f"Внешняя переменная {param} не найдена")
-                # Сохраняем значение внешней переменной в словаре
-                external_var["value"] = external_value
-            except (ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError) as e:
-                # Поднимаем специализированную ошибку с информацией о позиции
-                raise
-            except ExternalVarPathNotFoundError as e:
-                # Если у узла есть информация о позиции, используем её
-                if hasattr(node, 'source_line') and node.source_line:
-                    raise ExternalVarPathNotFoundError(
-                        e.path, 
-                        line=node.source_line, 
-                        line_num=node.line_num, 
-                        position=node.position, 
-                        node_value=node.value
-                    )
-                raise
-        
+        def resolve_all_vars(p):
+            p = self.resolve_all_external_vars_in_str(p)
+            p = self.resolve_all_global_vars_in_str(p)
+            return p
+        if isinstance(param, list):
+            resolved = [resolve_all_vars(p) for p in param]
+            def to_str(x):
+                if isinstance(x, list):
+                    import json
+                    return json.dumps(x, ensure_ascii=False)
+                if isinstance(x, str):
+                    return x
+                return str(x)
+            param_str = ', '.join(to_str(x) for x in resolved)
+            result_param = param_str
+        else:
+            result_param = resolve_all_vars(param)
         return {
             "type": PipelineItemType.PY_FUNC.value,
-            "param": param,
-            "external_var": external_var,  # Вместо is_external_var используем словарь external_var
+            "param": result_param,
             "full_str": node.value
         }
     
     def visit_direct_map(self, node):
         """Обход прямого отображения"""
         param = node.params.get("param", "$this")
-        is_external_var = node.params.get("is_external_var", False)
-        
-        # Словарь с информацией о внешней переменной
-        external_var = {
-            "is_external_var": is_external_var,
-            "value": None
-        }
-        
-        # Строгая проверка внешних переменных - аналогично visit_func_call
-        if is_external_var and param.startswith('$$'):
-            try:
-                # Передаем узел для контекста ошибки
-                external_value = self.get_external_var_value(param, node_context=node)
-                if external_value is None:
-                    raise ValueError(f"Внешняя переменная {param} не найдена")
-                # Сохраняем значение внешней переменной в словаре
-                external_var["value"] = external_value
-            except (ExternalVarsFolderNotFoundError, ExternalVarFileNotFoundError) as e:
-                # Поднимаем специализированную ошибку
-                raise
-            except ExternalVarPathNotFoundError as e:
-                # Если у узла есть информация о позиции, используем её
-                if hasattr(node, 'source_line') and node.source_line:
-                    raise ExternalVarPathNotFoundError(
-                        e.path, 
-                        line=node.source_line, 
-                        line_num=node.line_num, 
-                        position=node.position, 
-                        node_value=node.value
-                    )
-                raise
-        
+        def resolve_all_vars(p):
+            p = self.resolve_all_external_vars_in_str(p)
+            p = self.resolve_all_global_vars_in_str(p)
+            return p
+        if isinstance(param, list):
+            resolved = [resolve_all_vars(p) for p in param]
+            def to_str(x):
+                if isinstance(x, list):
+                    import json
+                    return json.dumps(x, ensure_ascii=False)
+                if isinstance(x, str):
+                    return x
+                return str(x)
+            param_str = ', '.join(to_str(x) for x in resolved)
+            result_param = param_str
+        else:
+            result_param = resolve_all_vars(param)
         return {
             "type": PipelineItemType.DIRECT.value,
-            "param": param,
-            "external_var": external_var,  # Вместо is_external_var используем словарь external_var
+            "param": result_param,
             "full_str": node.value
         }
     
     def visit_condition(self, node):
         """Обход условного выражения"""
         cond = node.value.strip()
-        
-        # Находим ключевые слова IF, ELIF, ELSE
         pattern = re.compile(r'(?i)\b(IF|ELIF|ELSE)\b')
         matches = list(pattern.finditer(cond))
-        
         if not matches:
             return {"type": PipelineItemType.CONDITION.value, "full_str": cond}
-            
-        # Формируем ветви
         branches = []
         for i, m in enumerate(matches):
             key = m.group(1).upper()
@@ -379,102 +371,86 @@ class JSONGenerator(ASTVisitor):
             end = matches[i+1].start() if i+1 < len(matches) else len(cond)
             branch_text = cond[start:end].strip()
             branches.append((key, branch_text))
-            
-        # Определяем тип конструкции
         has_elif = any(k.upper() == "ELIF" for k, _ in branches)
-        sub_type = "if_elifs_else" if has_elif else "if_else"
-        
+        has_else = any(k.upper() == "ELSE" for k, _ in branches)
+        if has_elif:
+            sub_type = "if_elifs_else"
+        elif has_else:
+            sub_type = "if_else"
+        else:
+            sub_type = "if"
         result = {
             "type": PipelineItemType.CONDITION.value, 
             "sub_type": sub_type,
             "full_str": cond
         }
-        
         elif_counter = 0
-        
-        # Обрабатываем ветви
         for key, text in branches:
             key = key.upper()
             if key in ("IF", "ELIF"):
-                # Извлекаем условие и действие
-                # Для IF и ELIF паттерн: KEY(condition): action
                 match = re.match(r'(?i)' + key + r'\s*\(([^)]*)\)\s*:\s*(.*)', text)
-                
                 if match:
                     exp_str = match.group(1).strip()
                     do_str = match.group(2).strip()
-                    
-                    # Парсинг выражения
+                    # Сначала внешние, потом глобальные переменные
+                    exp_str_resolved = self.resolve_all_external_vars_in_str(exp_str)
+                    exp_str_resolved = self.resolve_all_global_vars_in_str(exp_str_resolved)
                     if exp_str.startswith('*'):
                         exp_json = {
                             "type": PipelineItemType.PY_FUNC.value, 
                             "param": "$this", 
-                            "full_str": exp_str
+                            "full_str": exp_str_resolved
                         }
                     else:
                         exp_json = {
                             "type": "cond_exp", 
-                            "full_str": exp_str
+                            "full_str": exp_str_resolved
                         }
-                    
-                    # Парсинг действия
                     do_json = self._build_do_json(do_str)
-                    
                     if key == "IF":
                         result["if"] = {"exp": exp_json, "do": do_json}
                     else:
                         elif_counter += 1
                         result[f"elif_{elif_counter}"] = {"exp": exp_json, "do": do_json}
                 else:
-                    # Если не нашли соответствие паттерну, пробуем другой подход
                     if "(" in text and ")" in text and ":" in text:
-                        # Ищем скобки напрямую
                         open_paren = text.find("(")
                         close_paren = text.find(")", open_paren)
                         colon = text.find(":", close_paren)
-                        
                         if open_paren != -1 and close_paren != -1 and colon != -1:
                             exp_str = text[open_paren+1:close_paren].strip()
                             do_str = text[colon+1:].strip()
-                            
-                            # Парсинг выражения
+                            exp_str_resolved = self.resolve_all_external_vars_in_str(exp_str)
+                            exp_str_resolved = self.resolve_all_global_vars_in_str(exp_str_resolved)
                             if exp_str.startswith('*'):
                                 exp_json = {
                                     "type": PipelineItemType.PY_FUNC.value, 
                                     "param": "$this", 
-                                    "full_str": exp_str
+                                    "full_str": exp_str_resolved
                                 }
                             else:
                                 exp_json = {
                                     "type": "cond_exp", 
-                                    "full_str": exp_str
+                                    "full_str": exp_str_resolved
                                 }
-                            
-                            # Парсинг действия
                             do_json = self._build_do_json(do_str)
-                            
                             if key == "IF":
                                 result["if"] = {"exp": exp_json, "do": do_json}
                             else:
                                 elif_counter += 1
                                 result[f"elif_{elif_counter}"] = {"exp": exp_json, "do": do_json}
-            
             elif key == "ELSE":
-                # Для ELSE паттерн: ELSE: action
                 match = re.match(r'(?i)ELSE\s*:\s*(.*)', text)
-                
                 if match:
                     do_str = match.group(1).strip()
                     do_json = self._build_do_json(do_str)
                     result["else"] = {"do": do_json}
                 else:
-                    # Если не нашли соответствие паттерну, пробуем другой подход
                     if ":" in text:
                         colon = text.find(":")
                         do_str = text[colon+1:].strip()
                         do_json = self._build_do_json(do_str)
                         result["else"] = {"do": do_json}
-        
         return result
     
     def visit_event(self, node):
@@ -544,6 +520,33 @@ class JSONGenerator(ASTVisitor):
             if '(' in func_text and func_text.endswith(')'):
                 idx = func_text.find('(')
                 param = func_text[idx+1:-1].strip()
+                # Сначала внешние, потом глобальные переменные
+                if param:
+                    params = [p.strip() for p in param.split(',')]
+                    resolved_params = [self.resolve_all_external_vars_in_str(p) for p in params]
+                    resolved_params = [self.resolve_all_global_vars_in_str(p) for p in resolved_params]
+                    def to_str(x):
+                        if isinstance(x, list):
+                            import json
+                            return json.dumps(x, ensure_ascii=False)
+                        if isinstance(x, str):
+                            return x
+                        return str(x)
+                    if len(resolved_params) == 1:
+                        param = to_str(resolved_params[0])
+                    else:
+                        param = ', '.join(to_str(x) for x in resolved_params)
+            else:
+                # Если параметр без скобок (например, *func1 $myvar), тоже подставляем переменные
+                func_param = func_text.strip()
+                if func_param:
+                    func_param = self.resolve_all_external_vars_in_str(func_param)
+                    func_param = self.resolve_all_global_vars_in_str(func_param)
+                    param = func_param
+            # Всегда прогоняем param через подстановку, если это строка
+            if isinstance(param, str):
+                param = self.resolve_all_external_vars_in_str(param)
+                param = self.resolve_all_global_vars_in_str(param)
             return {"type": PipelineItemType.PY_FUNC.value, "param": param, "full_str": text}
         # Событие: SKIP, ROLLBACK, NOTIFY
         match = re.match(r'(?i)^(SKIP|ROLLBACK|NOTIFY)\((.*)\)$', text)
@@ -551,8 +554,37 @@ class JSONGenerator(ASTVisitor):
             event_type = match.group(1).upper()
             param_text = match.group(2)
             return {"type": PipelineItemType.EVENT.value, "sub_type": event_type, "param": param_text, "full_str": text}
-        # Прямое отображение или переменная
-        if text.startswith('$') or text.isidentifier():
-            return {"type": PipelineItemType.DIRECT.value, "param": text, "full_str": text}
+        # Прямое отображение или переменная — всегда подставляем значения глобальных и внешних переменных
+        text_resolved = self.resolve_all_external_vars_in_str(text)
+        text_resolved = self.resolve_all_global_vars_in_str(text_resolved)
+        return {"type": PipelineItemType.DIRECT.value, "param": text_resolved, "full_str": text}
         # Логическое выражение
-        return {"type": "cond_exp", "full_str": text} 
+        return {"type": "cond_exp", "full_str": text}
+
+    def resolve_all_external_vars_in_str(self, s, node_context=None):
+        """Заменяет все вхождения $$var.path в строке на их значения"""
+        import json as _json
+        def replacer(match):
+            var_path = match.group(0)
+            value = self.get_external_var_value(var_path, node_context=node_context)
+            if isinstance(value, (dict, list)):
+                return _json.dumps(value, ensure_ascii=False)
+            return str(value)
+        return re.sub(r'\$\$[a-zA-Z0-9_\.]+', replacer, s)
+
+    def resolve_all_global_vars_in_str(self, s):
+        """Заменяет все вхождения $var в строке на их значения из global_vars (кроме $this)"""
+        import json as _json
+        def replacer(match):
+            var_name = match.group(1)
+            if var_name == "this":
+                return "$this"
+            value = self.global_vars.get(var_name)
+            if value is None:
+                return "$" + var_name
+            val = value.get("value") if isinstance(value, dict) and "value" in value else value
+            if isinstance(val, (dict, list)):
+                return _json.dumps(val, ensure_ascii=False)
+            return str(val)
+        # $var, но не $$var
+        return re.sub(r'(?<!\$)\$([a-zA-Z_][a-zA-Z0-9_]*)', replacer, s) 

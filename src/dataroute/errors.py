@@ -397,7 +397,7 @@ class UndefinedVarError(DSLSyntaxError):
     
     def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
         self.var_name = var_name
-        super().__init__(ErrorType.UNDEFINED_VAR, line, line_num, position, None)
+        super().__init__(ErrorType.UNDEFINED_VAR, line, line_num, position, None, var_name=var_name)
         
     def _guess_error_position(self, line: str) -> int:
         """Определяет позицию ошибки в строке"""
@@ -908,4 +908,49 @@ class ExternalFuncFolderNotFoundError(DSLSyntaxError):
         hint = self.loc.get(Messages.Hint.FUNC_FOLDER_NOT_FOUND)
         hint_label = self.loc.get(Messages.Hint.LABEL)
         result = [message, f"{hint_label} {hint}"]
+        return "\n".join(result) 
+
+
+class ExternalVarWriteError(DSLSyntaxError):
+    """Ошибка: попытка записи во внешнюю переменную ($$)"""
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.EXTERNAL_VAR_WRITE, line, line_num, position, None, var_name=var_name)
+    def _guess_error_position(self, line: str) -> int:
+        pos = line.find(self.var_name)
+        if pos != -1:
+            return pos
+        return 0 
+
+
+class GlobalVarWriteError(DSLSyntaxError):
+    """Ошибка: попытка записи в глобальную переменную ($my_var)"""
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.GLOBAL_VAR_WRITE, line, line_num, position, None, var_name=var_name)
+    def _guess_error_position(self, line: str) -> int:
+        pos = line.find(self.var_name)
+        if pos != -1:
+            return pos
+        return 0 
+
+
+class UndefinedGlobalVarError(DSLSyntaxError):
+    """Ошибка: глобальная переменная не определена"""
+    def __init__(self, line: str, line_num: int, var_name: str, position: Optional[int] = None):
+        self.var_name = var_name
+        super().__init__(ErrorType.UNDEFINED_VAR, line, line_num, position, None, var_name=var_name)
+    def _format_error_message(self) -> str:
+        message = self.loc.get(Messages.Error.UNDEFINED_GLOBAL_VAR, var_name=self.var_name)
+        pointer = " " * self.position + "^"
+        result = [
+            self.loc.get(Messages.Error.LINE_PREFIX, line_num=self.line_num),
+            f"{self.line}",
+            f"{pointer}",
+            f"{message}",
+        ]
+        hint = self.loc.get(Messages.Hint.UNDEFINED_GLOBAL_VAR)
+        if hint:
+            hint_label = self.loc.get(Messages.Hint.LABEL)
+            result.append(f"{hint_label} {hint}")
         return "\n".join(result) 

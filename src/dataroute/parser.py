@@ -7,7 +7,8 @@ from .errors import (DSLSyntaxError, UndefinedVarError, InvalidVarUsageError,
                     FinalTypeError, VoidTypeError, UnknownPipelineSegmentError,
                     ConditionMissingIfError, ConditionMissingParenthesisError,
                     ConditionEmptyExpressionError, ConditionMissingColonError,
-                    ConditionInvalidError, FuncNotFoundError)
+                    ConditionInvalidError, FuncNotFoundError, ExternalVarWriteError,
+                    GlobalVarWriteError)
 from .ast_nodes import (
     ASTNode, ProgramNode, SourceNode, TargetNode, RouteBlockNode,
     FieldSrcNode, PipelineNode, FieldDstNode, RouteLineNode, PipelineItemNode, GlobalVarNode, FuncCallNode, DirectMapNode, ConditionNode, EventNode
@@ -38,6 +39,7 @@ class Parser:
         
         self.position = 0
         self.ast = ProgramNode()
+        self.ast.tokens = self.tokens  # Сохраняем все токены для генератора JSON
         
         # Хранилище для глобальных переменных, чтобы проверять дубликаты
         self._global_vars = {}
@@ -110,6 +112,23 @@ class Parser:
                 self.ast._global_vars[var_name] = var_node
                 
                 self.position += 1
+            elif token.type == TokenType.GLOBAL_VAR_USAGE:
+                var_name = token.value["var_name"]
+                original_line = token.value["line"]
+                line_num = token.position
+                # Проверяем, определена ли глобальная переменная
+                if var_name not in self._global_vars:
+                    from .errors import UndefinedGlobalVarError
+                    raise UndefinedGlobalVarError(
+                        original_line,
+                        line_num,
+                        var_name,
+                        original_line.find(f"${var_name}")
+                    )
+                # Если определена, добавляем специальный узел (или сохраняем для генерации JSON)
+                # Здесь можно добавить в AST специальный узел или обработать позже в генераторе JSON
+                # Пока просто пропускаем (или можно добавить в ast.children для генерации)
+                self.position += 1
             elif token.type == TokenType.ROUTE_HEADER:
                 target_name = token.value
                 self.position += 1
@@ -132,20 +151,21 @@ class Parser:
                     route_line_token = self.tokens[self.position]
                     route_line = self._parse_route_line(route_line_token)
                     # Проверка на дублирование финальной цели (без учёта $)
-                    norm_name = route_line.target_field.name.lstrip("$")
-                    if norm_name in final_names:
-                        from .errors import DSLSyntaxError
-                        from .constants import ErrorType
-                        from .localization import Messages
-                        raise DSLSyntaxError(
-                            ErrorType.DUPLICATE_FINAL_NAME,
-                            route_line_token.value['line'],
-                            route_line_token.position,
-                            0,
-                            None,
-                            final_name=route_line.target_field.name
-                        )
-                    final_names.add(norm_name)
+                    if route_line.target_field and route_line.target_field.name:
+                        norm_name = route_line.target_field.name.lstrip("$")
+                        if norm_name in final_names:
+                            from .errors import DSLSyntaxError
+                            from .constants import ErrorType
+                            from .localization import Messages
+                            raise DSLSyntaxError(
+                                ErrorType.DUPLICATE_FINAL_NAME,
+                                route_line_token.value['line'],
+                                route_line_token.position,
+                                0,
+                                None,
+                                final_name=route_line.target_field.name
+                            )
+                        final_names.add(norm_name)
                     routes.append(route_line)
                     self.position += 1
                 # Создаем блок маршрутов и добавляем в AST
@@ -205,6 +225,25 @@ class Parser:
             pr(str(error))
             sys.exit(1)
         
+        # Запрет на запись во внешнюю переменную
+        if target_field_name and target_field_name.startswith('$$'):
+            from .errors import ExternalVarWriteError
+            error = ExternalVarWriteError(original_line, line_num, target_field_name)
+            pr(str(error))
+            sys.exit(1)
+        
+        # Запрет на запись в глобальную переменную
+        if (
+            target_field_name
+            and target_field_name.startswith('$')
+            and hasattr(self.ast, '_global_vars')
+            and target_field_name[1:] in self.ast._global_vars
+        ):
+            from .errors import GlobalVarWriteError
+            error = GlobalVarWriteError(original_line, line_num, target_field_name)
+            pr(str(error))
+            sys.exit(1)
+        
         # Проверяем наличие типа целевого поля (если поле не пустое)
         if target_field_name and not target_field_type:
             # Находим позицию для сообщения об ошибке - после последней скобки
@@ -222,8 +261,9 @@ class Parser:
         src_field.set_position_info(original_line, line_num, src_field_pos)
         
         # Создаем узел для целевого поля, если оно указано
-        target_field = None
-        if target_field_name:
+        if target_field_name == "":
+            target_field = FieldDstNode("", None)
+        elif target_field_name:
             target_field = FieldDstNode(target_field_name, target_field_type)
             # Сохраняем информацию о позиции
             target_field_pos = original_line.rfind('[' + target_field_name + ']')
@@ -252,6 +292,8 @@ class Parser:
                     'src_field': src_field_name,
                     'defined': True
                 }
+        else:
+            target_field = None
         
         # Создаем узел для конвейера
         pipeline = PipelineNode()
@@ -260,8 +302,10 @@ class Parser:
             pipeline_pos = original_line.find('|')
             pipeline.set_position_info(original_line, line_num, pipeline_pos)
             
-            # Обрабатываем элементы конвейера
-            items = self._parse_pipeline_items(pipeline_str, original_line, line_num)
+            segments = [seg.strip() for seg in pipeline_str.strip('|').split('|') if seg.strip()]
+            items = []
+            for seg in segments:
+                items.extend(self._parse_pipeline_items(seg, original_line, line_num))
             pipeline.items = items
         
         # Создаем узел строки маршрута и связываем все компоненты
@@ -299,98 +343,58 @@ class Parser:
                 
                 if segment.startswith('*'):
                     # Функция Python
-                    # Извлекаем имя функции и параметры
-                    func_name = segment[1:]  # Убираем *
-                    param = "$this"  # Параметр по умолчанию
-                    is_pre_var = False
-                    is_external_var = False
-                    
-                    # Проверяем наличие скобок с параметрами
+                    func_name = segment[1:]
+                    params = []
                     if '(' in func_name and func_name.endswith(')'):
                         param_start = func_name.find('(')
                         param_end = func_name.rfind(')')
-                        
-                        # Извлекаем параметр
                         param_str = func_name[param_start+1:param_end].strip()
-                        
-                        # Проверяем на тип параметра
-                        if param_str.startswith('$^'):
-                            # Пре-переменная - проверяем, существует ли она
-                            is_pre_var = True
-                            param = param_str
-                            var_name = param_str[2:]  # Убираем '$^'
-                            
-                            # Проверяем, что имя переменной указано и существует как поле
+                        arg_list = self._split_args(param_str)
+                        checked_params = [p.strip() if p.strip() != f"${src_field}" else "$this" for p in arg_list]
+                        params = checked_params
+                        func_name = func_name[:param_start]
+                    else:
+                        params = []
+                    checked_params = []
+                    for param in params if params else ["$this"]:
+                        param = param.strip()
+                        # Если аргумент совпадает с текущим src_field, подставляем $this
+                        if param == f"${src_field}":
+                            param = "$this"
+                        if param.startswith('$^'):
+                            var_name = param[2:]
                             if var_name != 'this' and not var_name:
                                 error = UndefinedVarError(original_line, line_num, 'пустое имя', pipeline_str.find('$^'))
                                 pr(str(error))
                                 sys.exit(1)
-                            
-                            # Для $^this не нужна проверка, это текущее значение поля
-                            # Для полей с префиксом $^ не нужно проверять, существует ли переменная,
-                            # они используются для доступа к исходным полям
-                            # Убираем эту проверку, так как она приводит к ошибке
-                            # if var_name != 'this':
-                            #     # Если это не $^this, и нет такой локальной переменной, проверяем как исходное поле
-                            #     if var_name not in self._local_vars and var_name != src_field:
-                            #         from .errors import UndefinedVarError
-                            #         error = UndefinedVarError(original_line, line_num, var_name, pipeline_str.find('$^' + var_name))
-                            #         pr(str(error))
-                            #         sys.exit(1)
-                        elif param_str.startswith('$$'):
-                            # Внешняя переменная
-                            param = param_str
-                            is_external_var = True
-                            # Обработка внешних переменных выполняется в json_generator
-                        elif param_str.startswith('$'):
-                            # Обычная переменная - проверяем существование
-                            param = param_str
-                            var_name = param_str[1:]  # Убираем '$'
-                            
-                            # Проверяем, что имя переменной указано
+                        elif param.startswith('$$'):
+                            pass
+                        elif param.startswith('$'):
+                            var_name = param[1:]
                             if not var_name:
                                 error = UndefinedVarError(original_line, line_num, 'пустое имя', pipeline_str.find('$'))
                                 pr(str(error))
                                 sys.exit(1)
-                            
-                            # Для $this не нужна проверка, это текущее значение
                             if var_name != 'this':
-                                # Проверяем:
-                                # 1. Переменная определена глобально
-                                # 2. Переменная определена в предыдущих маршрутах
-                                # 3. Проверка на то, что это не поле из левой части
-                                
-                                # Проверяем, не является ли это попыткой использовать имя поля из левой части
                                 src_fields = []
                                 for token in self.tokens:
                                     if token.type == TokenType.ROUTE_LINE:
                                         src_fields.append(token.value.get('src_field', ''))
-                                
-                                # Если имя поля есть в левой части других маршрутов, но не определено как переменная
                                 if var_name in src_fields and var_name not in self._local_vars:
-                                    # Это попытка обратиться к левой части - специальная ошибка
                                     error = SrcFieldAsVarError(original_line, line_num, var_name, pipeline_str.find('$' + var_name))
                                     pr(str(error))
                                     sys.exit(1)
-                                
-                                # Проверяем наличие в глобальных переменных
                                 is_global_var = False
                                 if hasattr(self.ast, '_global_vars') and var_name in self.ast._global_vars:
                                     is_global_var = True
-                                
                                 if not is_global_var and var_name not in self._local_vars:
-                                    # Переменная не определена вообще
                                     error = UndefinedVarError(original_line, line_num, var_name, pipeline_str.find('$' + var_name))
                                     pr(str(error))
                                     sys.exit(1)
-                                    
                                 elif not is_global_var and var_name in self._local_vars and self._local_vars[var_name]['src_field'] == src_field:
-                                    # Переменная определена в этом же маршруте, нельзя использовать
                                     error = InvalidVarUsageError(original_line, line_num, var_name, pipeline_str.find('$' + var_name))
                                     pr(str(error))
                                     sys.exit(1)
-                                    
-                            # Регистрируем использование переменной
                             if var_name != 'this':
                                 if var_name not in self._local_var_refs:
                                     self._local_var_refs[var_name] = []
@@ -399,14 +403,8 @@ class Parser:
                                     'line': line_num,
                                     'context': segment
                                 })
-                        else:
-                            # Строковый или другой литерал
-                            param = param_str
-                        
-                        # Оставляем только имя функции
-                        func_name = func_name[:param_start]
-                    
-                    # Проверка наличия функции
+                        checked_params.append(param)
+                    param_value = checked_params[0] if len(checked_params) == 1 else checked_params
                     if self._available_funcs and func_name not in self._available_funcs:
                         error = FuncNotFoundError(original_line, line_num, func_name, original_line.find(f"*{func_name}"), func_folder=getattr(self, '_func_folder', None))
                         pr(str(error))
@@ -414,7 +412,7 @@ class Parser:
                     pipeline.items.append(PipelineItemNode(
                         PipelineItemType.PY_FUNC,
                         func_name,
-                        params={"param": param, "is_pre_var": is_pre_var, "is_external_var": is_external_var}
+                        params={"param": param_value}
                     ))
                     pr(M.Debug.PIPELINE_ITEM_ADDED, type=PipelineItemType.PY_FUNC.value, value=segment)
                 elif segment.lower().startswith('if'):
@@ -537,16 +535,15 @@ class Parser:
             # Проверяем, не является ли это попыткой использовать имя поля из левой части
             # 1. Совпадает ли имя переменной с именем поля в левой части текущего маршрута
             if var_name == src_field_name:
-                error = SrcFieldAsVarError(original_line, line_num, var_name, pipeline_str.find('$' + var_name))
-                pr(str(error))
-                sys.exit(1)
+                # Это обращение к текущему значению поля — трактуем как $this
+                continue
                 
-            # 2. Собираем имена всех полей из левой части всех маршрутов
+            # 2. Собираем имена всех полей из левой части всех маршрутов, кроме текущего
             src_fields = []
             for token in self.tokens:
                 if token.type == TokenType.ROUTE_LINE:
                     field_name = token.value.get('src_field', '')
-                    if field_name and field_name not in src_fields:
+                    if field_name and field_name != src_field_name and field_name not in src_fields:
                         src_fields.append(field_name)
             
             # 3. Проверяем, есть ли имя в списке полей левой части, но не определено как переменная
@@ -570,8 +567,8 @@ class Parser:
         # Если строка пустая, возвращаем пустой список
         if not inner_content:
             return items
-            
-        # Проверяем на условные выражения
+        
+        # Определяем тип узла на основе содержимого и создаем соответствующий узел
         if inner_content.lower().startswith(('if', 'elif', 'else')):
             # Обрабатываем условные выражения с проверкой ошибок
             try:
@@ -582,41 +579,27 @@ class Parser:
                 # Обработка и вывод ошибки, затем прерывание выполнения
                 pr(str(e))
                 sys.exit(1)
-        
-        # Определяем тип узла на основе содержимого и создаем соответствующий узел
         if inner_content.startswith('*'):
-            # Функция Python
-            func_text = inner_content[1:]  # Убираем * в начале
-            # Проверяем, есть ли параметры
-            param_value = "$this"  # Значение по умолчанию
-            is_external_var = False
+            func_text = inner_content[1:]
+            param_value = "$this"
             if '(' in func_text and func_text.endswith(')'):
                 idx = func_text.find('(')
                 func_name = func_text[:idx]
                 param_text = func_text[idx+1:-1].strip()
-                # Проверяем специальные типы параметров
-                if param_text.startswith('$$'):
-                    param_value = param_text
-                    is_external_var = True
-                elif param_text.startswith('$^'):
-                    param_value = param_text
-                elif param_text.startswith('$'):
-                    param_value = param_text
-                else:
-                    param_value = param_text
+                arg_list = self._split_args(param_text)
+                checked_params = [p.strip() if p.strip() != f"${src_field_name}" else "$this" for p in arg_list]
+                param_value = checked_params[0] if len(checked_params) == 1 else checked_params
             else:
                 func_name = func_text
-            # Проверка наличия функции
+                param_value = "$this"
             if self._available_funcs and func_name not in self._available_funcs:
                 error = FuncNotFoundError(original_line, line_num, func_name, original_line.find(f"*{func_name}"), func_folder=getattr(self, '_func_folder', None))
                 pr(str(error))
                 sys.exit(1)
-            # Создаем узел для функции
             node = FuncCallNode(
                 value=inner_content,
-                params={"param": param_value, "is_external_var": is_external_var}
+                params={"param": param_value}
             )
-            # Сохраняем информацию о позиции
             node_pos = pipeline_start_pos + inner_content.find('*')
             node.set_position_info(original_line, line_num, node_pos)
             items.append(node)
@@ -626,11 +609,9 @@ class Parser:
                 value=inner_content,
                 params={"param": "$this", "is_external_var": False}
             )
-            
             # Сохраняем информацию о позиции
             node_pos = pipeline_start_pos
             node.set_position_info(original_line, line_num, node_pos)
-            
             items.append(node)
         elif inner_content.startswith('$$'):
             # Прямое отображение внешней переменной
@@ -638,11 +619,9 @@ class Parser:
                 value=inner_content,
                 params={"param": inner_content, "is_external_var": True}
             )
-            
             # Сохраняем информацию о позиции
             node_pos = pipeline_start_pos
             node.set_position_info(original_line, line_num, node_pos)
-            
             items.append(node)
         elif re.match(r'(?i)^(SKIP|ROLLBACK|NOTIFY)\(', inner_content):
             # Событие в пайплайне
@@ -667,7 +646,6 @@ class Parser:
                 value=inner_content,
                 params={"param": inner_content, "is_external_var": False}
             )
-            
             # Проверяем, похоже ли это на забытую звездочку перед функцией
             # Условия: не начинается с $$, не является $this, не содержит пробелов
             if (not inner_content.startswith('$$') and inner_content != '$this' and 
@@ -677,13 +655,10 @@ class Parser:
                    value=inner_content, 
                    src=src_field_name,
                    color="yellow")
-            
             # Сохраняем информацию о позиции
             node_pos = pipeline_start_pos
             node.set_position_info(original_line, line_num, node_pos)
-            
             items.append(node)
-        
         return items
         
     def _parse_conditional_expression(self, content: str, original_line: str, line_num: int, pipeline_start_pos: int, src_field_name: str):
@@ -816,20 +791,21 @@ class Parser:
             route_line_token = self.tokens[self.position]
             route_line = self._parse_route_line(route_line_token)
             # Проверка на дублирование финальной цели (без учёта $)
-            norm_name = route_line.target_field.name.lstrip("$")
-            if norm_name in final_names:
-                from .errors import DSLSyntaxError
-                from .constants import ErrorType
-                from .localization import Messages
-                raise DSLSyntaxError(
-                    ErrorType.DUPLICATE_FINAL_NAME,
-                    route_line_token.value['line'],
-                    route_line_token.position,
-                    0,
-                    None,
-                    final_name=route_line.target_field.name
-                )
-            final_names.add(norm_name)
+            if route_line.target_field and route_line.target_field.name:
+                norm_name = route_line.target_field.name.lstrip("$")
+                if norm_name in final_names:
+                    from .errors import DSLSyntaxError
+                    from .constants import ErrorType
+                    from .localization import Messages
+                    raise DSLSyntaxError(
+                        ErrorType.DUPLICATE_FINAL_NAME,
+                        route_line_token.value['line'],
+                        route_line_token.position,
+                        0,
+                        None,
+                        final_name=route_line.target_field.name
+                    )
+                final_names.add(norm_name)
             routes.append(route_line)
             self.position += 1
         route_block = RouteBlockNode(target_name, routes)
@@ -840,6 +816,43 @@ class Parser:
         """Устанавливает список доступных функций для проверки и путь к папке функций."""
         self._available_funcs = set(funcs)
         self._func_folder = func_folder
+
+    def _split_args(self, s):
+        args = []
+        buf = ''
+        depth = 0
+        in_str = False
+        str_char = ''
+        i = 0
+        while i < len(s):
+            c = s[i]
+            if in_str:
+                buf += c
+                if c == str_char:
+                    in_str = False
+                elif c == '\\':
+                    if i+1 < len(s):
+                        buf += s[i+1]
+                        i += 1
+            elif c in ('"', "'"):
+                in_str = True
+                str_char = c
+                buf += c
+            elif c == '(': 
+                depth += 1
+                buf += c
+            elif c == ')':
+                depth -= 1
+                buf += c
+            elif c == ',' and depth == 0:
+                args.append(buf.strip())
+                buf = ''
+            else:
+                buf += c
+            i += 1
+        if buf.strip():
+            args.append(buf.strip())
+        return args
 
 
 # Импортируем TokenType в конце файла, чтобы избежать циклических зависимостей
