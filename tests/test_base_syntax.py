@@ -453,3 +453,358 @@ class TestGlobalVarInPythonParams:
         assert result == expected_result, f"Неверный результат для теста с глобальными переменными!\n{result}"
 
 
+class TestComplexNormBlock:
+    """Проверка сложного DSL для norm_data.norm_blocks"""
+    def test_norm_block_dsl(self):
+        test_case = """
+        source=dict/my_dict
+        norm=postgres/norm_data.norm_blocks
+        $block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457
+        norm:
+            [block_uuid] -> [block_uuid](str)
+            [is_euro] -> |*s1|IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)| -> [is_euro](bool)
+            [rooms] -> |*s1|IF($block_uuid == $block9Floor AND $this == "9" OR $this == None): *get(0)| -> [rooms](str)
+            [] -> |*get(\"Свободна\")| -> [status](str)
+            [section] -> |*s1|IF($this == None): *get(\"Нет секции\")| -> [section_name](str)
+            [price_sale] -> |*s1| -> [$price_sale](int)
+            [price_base] -> |*s1|IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)| -> [price](int)
+            [type] -> |*get_tag_by_type($this)| -> [tags](str)
+            [area_total] -> [area_total](float)
+            [area_given] -> [area_given](float)
+            [area_kitchen] -> [area_kitchen](float)
+            [number] -> |IF($this == None): *get(\"-\")| -> [number](str)                
+            [windows] -> [windows](str)
+            [window_view] -> [window_view](str)
+            [view_places] -> [view_places](str)
+            [floor] -> |*s1|IF($this == None): *get(0)| -> [floor_of_flat](int)   
+            [floors_in_section] -> [floors_in_section](int)
+            [comment] -> [comment](str)
+            [plan_url] -> [plan_url](str)
+            [floor_plan_url] -> [floor_plan_url](str)
+            [finising] -> |*get_finishing($this)| -> [finishing](str)
+            [uuid] -> [flats_uuid](str)
+            [] -> |*get_flats_type_uuid($block_uuid, $rooms, $tags)| -> [flats_type_uuid](str)
+            [building_uuid] -> [building_uuid](str)
+            [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
+        """
+        expected_result = {
+            "postgres/norm_data.norm_blocks": {
+                "sourse_type": {
+                    "type": "dict",
+                    "name": "my_dict"
+                },
+                "target_type": {
+                    "type": "postgres",
+                    "name": "norm_data.norm_blocks"
+                },
+                "routes": {
+                    "block_uuid": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "block_uuid"
+                    },
+                    "is_euro": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            },
+                            "2": {
+                                "type": "condition",
+                                "sub_type": "if_else",
+                                "full_str": "IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$this IN [\"1\", \"true\", \"True\"]"
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "True",
+                                        "full_str": "*get(True)"
+                                    }
+                                },
+                                "else": {
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "False",
+                                        "full_str": "*get(False)"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "bool",
+                        "final_name": "is_euro"
+                    },
+                    "rooms": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            },
+                            "2": {
+                                "type": "condition",
+                                "sub_type": "if",
+                                "full_str": "IF($block_uuid == $block9Floor AND $this == \"9\" OR $this == None): *get(0)",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$block_uuid == f49f5e6b-67f1-4596-a4f8-5f27f1f5f457 AND $this == \"9\" OR $this == None"
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "0",
+                                        "full_str": "*get(0)"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "rooms"
+                    },
+                    "__void1": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "\"Свободна\"",
+                                "full_str": "*get(\"Свободна\")"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "status"
+                    },
+                    "section": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            },
+                            "2": {
+                                "type": "condition",
+                                "sub_type": "if",
+                                "full_str": "IF($this == None): *get(\"Нет секции\")",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$this == None"
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "\"Нет секции\"",
+                                        "full_str": "*get(\"Нет секции\")"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "section_name"
+                    },
+                    "price_sale": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            }
+                        },
+                        "final_type": "int",
+                        "final_name": "$price_sale"
+                    },
+                    "price_base": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            },
+                            "2": {
+                                "type": "condition",
+                                "sub_type": "if",
+                                "full_str": "IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$price_sale != None OR $price_sale != \"0\""
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "$price_sale",
+                                        "full_str": "*get($price_sale)"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "int",
+                        "final_name": "price"
+                    },
+                    "type": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*get_tag_by_type($this)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "tags"
+                    },
+                    "area_total": {
+                        "pipeline": None,
+                        "final_type": "float",
+                        "final_name": "area_total"
+                    },
+                    "area_given": {
+                        "pipeline": None,
+                        "final_type": "float",
+                        "final_name": "area_given"
+                    },
+                    "area_kitchen": {
+                        "pipeline": None,
+                        "final_type": "float",
+                        "final_name": "area_kitchen"
+                    },
+                    "number": {
+                        "pipeline": {
+                            "1": {
+                                "type": "condition",
+                                "sub_type": "if",
+                                "full_str": "IF($this == None): *get(\"-\")",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$this == None"
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "\"-\"",
+                                        "full_str": "*get(\"-\")"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "number"
+                    },
+                    "windows": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "windows"
+                    },
+                    "window_view": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "window_view"
+                    },
+                    "view_places": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "view_places"
+                    },
+                    "floor": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*s1"
+                            },
+                            "2": {
+                                "type": "condition",
+                                "sub_type": "if",
+                                "full_str": "IF($this == None): *get(0)",
+                                "if": {
+                                    "exp": {
+                                        "type": "cond_exp",
+                                        "full_str": "$this == None"
+                                    },
+                                    "do": {
+                                        "type": "py_func",
+                                        "param": "0",
+                                        "full_str": "*get(0)"
+                                    }
+                                }
+                            }
+                        },
+                        "final_type": "int",
+                        "final_name": "floor_of_flat"
+                    },
+                    "floors_in_section": {
+                        "pipeline": None,
+                        "final_type": "int",
+                        "final_name": "floors_in_section"
+                    },
+                    "comment": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "comment"
+                    },
+                    "plan_url": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "plan_url"
+                    },
+                    "floor_plan_url": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "floor_plan_url"
+                    },
+                    "finising": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$this",
+                                "full_str": "*get_finishing($this)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "finishing"
+                    },
+                    "uuid": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "flats_uuid"
+                    },
+                    "__void2": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$block_uuid, $rooms, $tags",
+                                "full_str": "*get_flats_type_uuid($block_uuid, $rooms, $tags)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "flats_type_uuid"
+                    },
+                    "building_uuid": {
+                        "pipeline": None,
+                        "final_type": "str",
+                        "final_name": "building_uuid"
+                    },
+                    "__void3": {
+                        "pipeline": {
+                            "1": {
+                                "type": "py_func",
+                                "param": "$tags",
+                                "full_str": "*get_uuid_real_estate_type($tags)"
+                            }
+                        },
+                        "final_type": "str",
+                        "final_name": "uuid_real_estate_type"
+                    }
+                }
+            },
+            "global_vars": {
+                "block9Floor": {
+                    "type": "str",
+                    "value": "f49f5e6b-67f1-4596-a4f8-5f27f1f5f457"
+                }
+            }
+        }
+        dtrt = DataRoute(test_case, debug=True, func_folder="tests/ext_funcs", vars_folder="tests/ext_vars", lang="ru", color=True)
+        result = dtrt.go()
+        assert result == expected_result, f"Неверный результат для сложного norm_block DSL!\n{result}"
+        dtrt.print_json()
+
+

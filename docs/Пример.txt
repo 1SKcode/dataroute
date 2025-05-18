@@ -28,48 +28,6 @@
                 [block_uuid] -> [block_uuid](str)
                 [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
 
-
-source = dict   #etl_routes()
-
-target1=parser/norm_data.norm_flats
-target2=parser/fids_raw_data.flats
-target3=source
-
-target1:
-    [] -> |*gen_uuid| -> [uuid](UUID)
-    [id]        -> |*s1|if (None): ROLLBACK("У ОН нет id!")|  -> []
-    [section]   -> |*s1|if (None): *get("нет секции")|        -> [section_name](str)
-    [floor]     -> |*s1|                                      -> [floor_of_flat](int)
-    [type]      -> |*s1|if (not in $$normdata.TYPE_OF_FLATS): SKIP("Еще не обрабатываем такой тип") | ->  []
-    [type]
-    [is_studio]
-    [rooms]
-    [area_total]
-    [area_living]
-    [area_kitchen]
-    [ceiling]
-    [price]        -> |*s1|*s_prise|if (None): SKIP("Нет базовой цены")| -> price_base(int)
-    [price_sale]   -> |*s1|*s_prise|if (None): *get($price) -> []
-    [balconies]
-    [loggias]
-    [images]
-    [plans_flat]
-    [plans_floor]
-    [url]
-    [number]
-    [windows_view] -> |*lower| -> [windows_view](str)
-    [advantages]
-    [finising]
-    [description]
-    [area_bath]
-    [area_toilet]
-    [plans_flat_furniture]
-    [floors_in_section]
-    [status_active]
-    [is_euro] -> |*s1|*lower|if (in $$normdata.EURO_LIST): *get(True) else (*get(False))| -> [is_euro](bool)
-
-
-
 # СИНТАКСИС:
 [TESTS][realized] description
 
