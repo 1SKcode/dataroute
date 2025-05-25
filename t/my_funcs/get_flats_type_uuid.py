@@ -1,11 +1,17 @@
-def get_flats_type_uuid(block_uuid, rooms, tags):
+def func(*args, **kwargs):
+    if not args:
+        return None
+    block_uuid = args[0]
+    rooms = args[1]
+    tags = args[2] if len(args) > 2 else kwargs.get("tags")
+
     FLATS_TYPE_UUID_MAP = {
-    ("f49f5e6b-67f1-4596-a4f8-5f27f1f5f457", "9"): "019f2104-628f-468a-a368-2df80e0b3247",
-    ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "1"): "019f2104-628f-468a-a368-2df80e0b3247",
-    ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "2"): "b35e9518-4d9d-4e58-8b4a-51d7aa42d7ec",
-    ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "3"): "8c89d8c7-7ea0-4412-a0cb-44cb12914309",
-    ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "4"): "1102e5b0-cc60-45dc-bc86-520c1f48f085",
-    ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "5"): "80033d77-b52a-44b9-a630-8f5243b93553",
+        ("f49f5e6b-67f1-4596-a4f8-5f27f1f5f457", "9"): "019f2104-628f-468a-a368-2df80e0b3247",
+        ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "1"): "019f2104-628f-468a-a368-2df80e0b3247",
+        ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "2"): "b35e9518-4d9d-4e58-8b4a-51d7aa42d7ec",
+        ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "3"): "8c89d8c7-7ea0-4412-a0cb-44cb12914309",
+        ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "4"): "1102e5b0-cc60-45dc-bc86-520c1f48f085",
+        ("04c6223f-24fc-412b-bf49-2adcd8ddccc8", "5"): "80033d77-b52a-44b9-a630-8f5243b93553",
     }
 
     FLATS_TYPE_UUID_BY_TAG = {
@@ -48,4 +54,4 @@ def get_flats_type_uuid(block_uuid, rooms, tags):
         return SPECIAL_ROOMS[rooms]
     if tags in FLATS_TYPE_UUID_BY_TAG:
         return FLATS_TYPE_UUID_BY_TAG[tags].get(rooms)
-    return None 
+    return None

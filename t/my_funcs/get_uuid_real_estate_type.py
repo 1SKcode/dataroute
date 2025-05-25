@@ -1,4 +1,7 @@
-def get_uuid_real_estate_type(tag):
+def func(*args, **kwargs):
+    if not args:
+        return None
+    tag = args[0]
     UUID_REAL_ESTATE_TYPE_MAP = {
     "Апартаменты": "1fc784b5-639c-4777-91ce-da6324ba59f7",
     "Квартира": "9f866b12-2848-4b60-b754-811212ce8657",

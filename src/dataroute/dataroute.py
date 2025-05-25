@@ -8,23 +8,6 @@ from dsl_compiler._impl import Engine
 
 
 class DataRoute:
-    """
-    Основной класс для работы с DSL DataRoute.
-    
-    Примеры использования:
-    
-    # Из файла
-    dtrt = DataRoute("file.dtrt")
-    result = dtrt.go()
-    dtrt.print_json()  # Вывод в консоль
-    dtrt.to_json("result.json")  # Сохранение в файл
-    
-    # Из строки
-    code = 'source = data | [field] -> [other] |'
-    dtrt = DataRoute(code, is_file=False)
-    result = dtrt.go()
-    """
-    
     def __init__(
         self, 
         source: str, 
@@ -50,14 +33,14 @@ class DataRoute:
         """
         self._engine = Engine(source, debug, lang, color, vars_folder, func_folder)
     
-    def go(self) -> Dict[str, Any]:
+    def compile_ic(self) -> Dict[str, Any]:
         """
         Запускает обработку DSL и возвращает результат
         
         Returns:
             Dict[str, Any]: Структура данных, представляющая обработанный DSL
         """
-        return self._engine.go()
+        return self._engine.compile_ic()
     
     def set_lang(self, lang: str) -> "DataRoute":
         """

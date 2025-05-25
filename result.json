@@ -1,7 +1,7 @@
 {
   "lang": "py",
   "postgres/norm_data.norm_blocks": {
-    "sourse_type": {
+    "source_type": {
       "type": "dict",
       "name": "my_dict"
     },
@@ -74,7 +74,10 @@
           }
         },
         "final_type": "str",
-        "final_name": "rooms"
+        "final_name": "rooms",
+        "depends_on": [
+          "block_uuid"
+        ]
       },
       "__void1": {
         "pipeline": {
@@ -287,7 +290,12 @@
           }
         },
         "final_type": "str",
-        "final_name": "flats_type_uuid"
+        "final_name": "flats_type_uuid",
+        "depends_on": [
+          "block_uuid",
+          "rooms",
+          "type"
+        ]
       },
       "building_uuid": {
         "pipeline": null,
@@ -303,9 +311,45 @@
           }
         },
         "final_type": "str",
-        "final_name": "uuid_real_estate_type"
+        "final_name": "uuid_real_estate_type",
+        "depends_on": [
+          "type"
+        ]
       }
-    }
+    },
+    "execution_plan": [
+      [
+        "block_uuid",
+        "is_euro",
+        "__void1",
+        "section",
+        "price_sale",
+        "price_base",
+        "type",
+        "area_total",
+        "area_given",
+        "area_kitchen",
+        "number",
+        "windows",
+        "window_view",
+        "view_places",
+        "floor",
+        "floors_in_section",
+        "comment",
+        "plan_url",
+        "floor_plan_url",
+        "finising",
+        "uuid",
+        "building_uuid"
+      ],
+      [
+        "rooms",
+        "__void3"
+      ],
+      [
+        "__void2"
+      ]
+    ]
   },
   "global_vars": {
     "block9Floor": {

@@ -26,6 +26,7 @@ class JSONGenerator(ASTVisitor):
         self.global_vars = {}
         self.vars_folder = vars_folder
         self.external_vars = {}  # Кеш для внешних переменных
+        self._route_dependencies = {}  # {target_key: {route_key: set(deps)}}
         
         # Загружаем внешние переменные, если указана папка
         if vars_folder and os.path.isdir(vars_folder):
@@ -220,7 +221,7 @@ class JSONGenerator(ASTVisitor):
             self.target_name_map[target_name] = type_name_key
             if type_name_key not in self.result:
                 self.result[type_name_key] = {
-                    "sourse_type": self.source_type,
+                    "source_type": self.source_type,
                     "target_type": target_node.target_type,
                     "routes": {}
                 }
@@ -228,8 +229,27 @@ class JSONGenerator(ASTVisitor):
         else:
             self.current_target = target_name
         pr(M.Debug.ROUTE_PROCESSING, target=self.current_target)
+        # --- Новый блок: собираем все маршруты для построения маппинга final_name -> route_key ---
+        self._final_name_to_route_key = {}
+        for route in node.routes:
+            src_field = route.src_field.accept(self)
+            pipeline = route.pipeline.accept(self)
+            if route.target_field:
+                target_field, _ = route.target_field.accept(self)
+            else:
+                target_field = src_field
+            route_key = src_field
+            if target_field:
+                self._final_name_to_route_key[target_field] = route_key
+        # --- конец нового блока ---
         for route in node.routes:
             route.accept(self)
+        # Теперь routes уже полностью сформирован, можно взять порядок ключей
+        routes = self.result[self.current_target]["routes"]
+        route_order = list(routes.keys())
+        deps = self._route_dependencies.get(self.current_target, {})
+        plan = self._build_execution_plan(routes, deps, route_order)
+        self.result[self.current_target]["execution_plan"] = plan
     
     def visit_route_line(self, node):
         """Обход строки маршрута"""
@@ -255,6 +275,12 @@ class JSONGenerator(ASTVisitor):
         # Для пустого исходного поля создаем специальный ключ
         route_key = src_field if src_field else self._get_void_key()
         
+        # --- Новый блок: определяем зависимости по маппингу final_name -> route_key ---
+        depends_on_names = self._extract_dependencies_from_pipeline(pipeline)
+        depends_on = []
+        for name in depends_on_names:
+            if hasattr(self, '_final_name_to_route_key') and name in self._final_name_to_route_key:
+                depends_on.append(self._final_name_to_route_key[name])
         # Добавляем маршрут в результат
         if self.current_target in self.result:
             # Новый маршрут для добавления
@@ -263,6 +289,8 @@ class JSONGenerator(ASTVisitor):
                 "final_type": target_field_type,
                 "final_name": target_field
             }
+            if depends_on:
+                new_route["depends_on"] = depends_on
             
             # Проверяем, существует ли уже маршрут с таким ключом
             routes = self.result[self.current_target]["routes"]
@@ -281,6 +309,11 @@ class JSONGenerator(ASTVisitor):
             else:
                 # Если это первый маршрут с таким ключом, добавляем как обычно
                 routes[route_key] = new_route
+            
+            # --- сохраняем зависимости для execution_plan ---
+            if self.current_target not in self._route_dependencies:
+                self._route_dependencies[self.current_target] = {}
+            self._route_dependencies[self.current_target][route_key] = set(depends_on) if depends_on else set()
             
             # Для вывода сообщения корректно обрабатываем None значения
             display_target = target_field if target_field is not None else "None"
@@ -591,4 +624,42 @@ class JSONGenerator(ASTVisitor):
                 return _json.dumps(val, ensure_ascii=False)
             return str(val)
         # $var, но не $$var
-        return re.sub(r'(?<!\$)\$([a-zA-Z_][a-zA-Z0-9_]*)', replacer, s) 
+        return re.sub(r'(?<!\$)\$([a-zA-Z_][a-zA-Z0-9_]*)', replacer, s)
+
+    def _extract_dependencies_from_pipeline(self, pipeline):
+        """Извлекает зависимости ($pointX) из pipeline любого уровня вложенности, игнорируя $this."""
+        deps = set()
+        def extract(obj):
+            if isinstance(obj, dict):
+                for v in obj.values():
+                    extract(v)
+                for v in obj.values():
+                    if isinstance(v, str):
+                        deps.update(re.findall(r'\$([a-zA-Z_][a-zA-Z0-9_]*)', v))
+            elif isinstance(obj, list):
+                for v in obj:
+                    extract(v)
+            elif isinstance(obj, str):
+                deps.update(re.findall(r'\$([a-zA-Z_][a-zA-Z0-9_]*)', obj))
+        extract(pipeline)
+        # Исключаем 'this' из зависимостей
+        deps.discard('this')
+        return sorted(deps)
+
+    def _build_execution_plan(self, routes, deps, order):
+        """Строит execution_plan (batch-уровни) по depends_on для всех routes (без циклов), с сохранением порядка из DSL."""
+        all_keys = list(routes.keys())
+        dep_map = {k: set(deps.get(k, set())) for k in all_keys}
+        for k in dep_map:
+            dep_map[k] = set(d for d in dep_map[k] if d in all_keys)
+        plan = []
+        scheduled = set()
+        while len(scheduled) < len(all_keys):
+            batch = [k for k in all_keys if k not in scheduled and dep_map[k].issubset(scheduled)]
+            if not batch:
+                batch = [k for k in all_keys if k not in scheduled]
+            # Сортируем batch по порядку из order
+            batch.sort(key=lambda k: order.index(k))
+            plan.append(batch)
+            scheduled.update(batch)
+        return plan 

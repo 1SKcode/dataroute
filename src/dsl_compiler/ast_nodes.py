@@ -9,7 +9,7 @@ class ASTNode(ABC):
     """Базовый класс для узла абстрактного синтаксического дерева"""
     node_type: NodeType
     # Информация о позиции в исходном коде
-    source_line: str = None  # Исходная строка
+    source_line: str = ""  # Исходная строка
     line_num: int = 0       # Номер строки
     position: int = 0       # Позиция в строке
     

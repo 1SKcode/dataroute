@@ -2,7 +2,7 @@ from .config import Config
 from .localization import Localization, Messages
 import sys
 import re
-
+from typing import Optional
 ANSI_COLORS = {
     "RS": "\033[0m",        # Сброс цвета
     "G": "\033[32m",        # Зеленый
@@ -21,7 +21,7 @@ def colorize(text: str, use_color: bool = True) -> str:
         return ANSI_COLORS.get(tag, '')
     return re.sub(r'>[A-Z]+<', repl, text)
 
-def pr(msg, *args, debug: bool = None, lang: str = None, color: bool = None, **kwargs):
+def pr(msg, *args, debug: Optional[bool] = None, lang: Optional[str] = None, color: Optional[bool] = None, **kwargs):
     """
     Универсальный вывод локализованных сообщений.
     

@@ -205,4 +205,4 @@ ALLOWED_TYPES = [
 ] 
 
 # Список поддерживаемых языков компиляции
-SUPPORTED_TARGET_LANGUAGES = ["py", "cpp", "python"] 
+SUPPORTED_TARGET_LANGUAGES = ["py", "python"] 

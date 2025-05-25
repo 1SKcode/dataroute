@@ -2,7 +2,7 @@ import json
 import os
 import sys
 import traceback
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union, cast
 
 from .lexer import Lexer
 from .parser import Parser
@@ -28,8 +28,8 @@ class Engine:
         debug: bool = False, 
         lang: str = "en", 
         color: bool = False,
-        vars_folder: str = None,
-        func_folder: str = None
+        vars_folder: Optional[str] = None,
+        func_folder: Optional[str] = None
     ):
         """
         Инициализирует компоненты обработки DSL
@@ -53,7 +53,7 @@ class Engine:
         self._vars_folder = vars_folder
         self._func_folder = func_folder
         self._is_file = self._detect_source_type(source)
-
+            
         # --- Новый блок: определяем язык функций из DSL ---
         dsl_text = self._load_source() if not self._is_file else self._try_peek_file(self._source)
         self._dsl_lang = self._extract_dsl_lang(dsl_text)
@@ -62,8 +62,9 @@ class Engine:
         self._lexer = Lexer()
         self._available_funcs = self._collect_functions(self._dsl_lang)
         self._parser = Parser()
-        self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
-        self._json_generator = JSONGenerator(vars_folder)
+        if self._func_folder:
+            self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
+        self._json_generator = JSONGenerator(vars_folder if vars_folder else "")
         self._result = None
         self._text = None
         self._localizer = Localization(self._lang)
@@ -132,7 +133,7 @@ class Engine:
         else:
             return self._source
     
-    def _print(self, msg, *args, **kwargs):
+    def _print(self, msg: Union[Dict[str, str], str], *args, **kwargs):
         """
         Выводит локализованное сообщение с учетом настроек
         
@@ -193,7 +194,7 @@ class Engine:
         self._color = color
         Config.set(color=color)
     
-    def go(self) -> Dict[str, Any]:
+    def compile_ic(self) -> Dict[str, Any]:
         """
         Запускает обработку DSL и возвращает структуру JSON
         
@@ -215,7 +216,8 @@ class Engine:
         # Пересоздаем компоненты для полного сброса их внутреннего состояния
         self._lexer = Lexer()
         self._parser = Parser()
-        self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
+        if self._func_folder:
+            self._parser.set_available_funcs(self._available_funcs, func_folder=self._func_folder)
         # Не создаем новый JSONGenerator, а очищаем состояние существующего
         if hasattr(self._json_generator, 'reset'):
             self._json_generator.reset()
@@ -260,21 +262,6 @@ class Engine:
             pr(str(e), file=sys.stderr)
             sys.exit(1)
             
-        except ExternalVarsFolderNotFoundError as e:
-            # Ошибка папки с внешними переменными
-            pr(str(e), file=sys.stderr)
-            sys.exit(1)
-            
-        except ExternalVarFileNotFoundError as e:
-            # Ошибка файла с внешними переменными
-            pr(str(e), file=sys.stderr)
-            sys.exit(1)
-            
-        except ExternalVarPathNotFoundError as e:
-            # Ошибка пути во внешней переменной
-            pr(str(e), file=sys.stderr)
-            sys.exit(1)
-            
         except FileNotFoundError as e:
             # Файл не найден или путь неверный
             pr(f"Ошибка: {str(e)}", file=sys.stderr)
@@ -309,10 +296,10 @@ class Engine:
             Optional[str]: JSON-строка, если output_file=None, иначе None
             
         Note:
-            Если результат еще не получен, автоматически вызывает go()
+            Если результат еще не получен, автоматически вызывает compile_ic()
         """
         if self._result is None:
-            self.go()
+            self.compile_ic()
             
         json_str = json.dumps(self._result, indent=indent, ensure_ascii=False)
         
@@ -331,10 +318,11 @@ class Engine:
             indent: Отступ для форматирования JSON
             
         Note:
-            Если результат еще не получен, автоматически вызывает go()
+            Если результат еще не получен, автоматически вызывает compile_ic()
         """
         json_str = self.to_json(indent=indent)
-        self._print(json_str)
+        if json_str:
+            self._print(json_str)
     
     @property
     def result(self) -> Optional[Dict[str, Any]]:
@@ -380,7 +368,7 @@ class Engine:
         except Exception:
             return ""
 
-    def _collect_functions(self, dsl_lang="py"):
+    def _collect_functions(self, dsl_lang: str = "py") -> set:
         """Собирает имена функций из std_func/<lang> и пользовательской папки, проверяет конфликты."""
         import os
         from .localization import Messages as M
@@ -414,7 +402,7 @@ class Engine:
                 if f.endswith(".py") and not f.startswith("_"):
                     user_funcs.add(os.path.splitext(f)[0])
         conflicts = std_funcs & user_funcs
-        if conflicts:
+        if conflicts and self._func_folder:
             print_func_conflict_error(std_func_dir, self._func_folder, conflicts)
             sys.exit(1)
         return std_funcs | user_funcs 

@@ -19,7 +19,20 @@ finishing_groups = {
     ]
 }
 
-finishing_to_tag = {synonym: tag for tag, synonyms in finishing_groups.items() for synonym in synonyms}
+finishing_to_tag = {
+    synonym.strip(): tag
+    for tag, synonyms in finishing_groups.items()
+    for synonym in synonyms
+}
 
-def get_finishing(finising_value):
-    return finishing_to_tag.get(finising_value, None) 
+
+def func(*args, **kwargs):
+    if not args:
+        return None
+
+    value = args[0]
+    if not isinstance(value, str):
+        return None
+
+    cleaned = value.strip()
+    return finishing_to_tag.get(cleaned, None)

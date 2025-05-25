@@ -1,33 +1,3 @@
-            source=dict/my_dict
-            norm=postgres/norm_data.norm_blocks
-            $block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457
-            norm:                
-                [is_euro] -> |*s1|IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)| -> [is_euro](bool)
-                [rooms] -> |*s1|IF($block_uuid == $block9Floor AND $this == "9" OR $this == None): *get(0)| -> [rooms](str)
-                [] -> |*get("Свободна")| -> [status](str)
-                [section] -> |*s1|IF($this == None): *get("Нет секции")| -> [section_name](str)
-                [price_sale] -> |*s1| -> [$price_sale](int)
-                [price_base] -> |*s1|IF($price_sale != None OR $price_sale != "0"): *get($price_sale)| -> [price](int)
-                [type] -> |*get_tag_by_type($this)| -> [tags](str)
-                [area_total] -> [area_total](float)
-                [area_given] -> [area_given](float)
-                [area_kitchen] -> [area_kitchen](float)
-                [number] -> |IF($this == None): *get("-")| -> [number](str)                
-                [windows] -> [windows](str)
-                [window_view] -> [window_view](str)
-                [view_places] -> [view_places](str)
-                [floor] -> |*s1|IF($this == None): *get(0)| -> [floor_of_flat](int)   
-                [floors_in_section] -> [floors_in_section](int)
-                [comment] -> [comment](str)
-                [plan_url] -> [plan_url](str)
-                [floor_plan_url] -> [floor_plan_url](str)
-                [finising] -> |*get_finishing($this)| -> [finishing](str)
-                [uuid] -> [flats_uuid](str)
-                [] -> |*get_flats_type_uuid($block_uuid, $rooms, $tags)| -> [flats_type_uuid](str)
-                [building_uuid] -> [building_uuid](str)
-                [block_uuid] -> [block_uuid](str)
-                [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
-
 # СИНТАКСИС:
 [TESTS][realized] description
 
@@ -104,508 +74,161 @@ point:
 
 ВХОДНАЯ СТРОКА:
 """
-sourse=dict
+source=dict/my_dict
+norm=postgres/norm_data.norm_blocks
+$block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457
+norm:                
+    [is_euro] -> |*s1|IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)| -> [is_euro](bool)
+    [rooms] -> |*s1|IF($block_uuid == $block9Floor AND $this == "9" OR $this == None): *get(0)| -> [rooms](str)
+    [] -> |*get("Свободна")| -> [status](str)
+    [section] -> |*s1|IF($this == None): *get("Нет секции")| -> [section_name](str)
+    [price_sale] -> |*s1| -> [$price_sale](int)
+    [price_base] -> |*s1|IF($price_sale != None OR $price_sale != "0"): *get($price_sale)| -> [price](int)
+    [type] -> |*get_tag_by_type($this)| -> [tags](str)
+    [area_total] -> [area_total](float)
+    [area_given] -> [area_given](float)
+    [area_kitchen] -> [area_kitchen](float)
+    [number] -> |IF($this == None): *get("-")| -> [number](str)                
+    [windows] -> [windows](str)
+    [window_view] -> [window_view](str)
+    [view_places] -> [view_places](str)
+    [floor] -> |*s1|IF($this == None): *get(0)| -> [floor_of_flat](int)   
+    [floors_in_section] -> [floors_in_section](int)
+    [comment] -> [comment](str)
+    [plan_url] -> [plan_url](str)
+    [floor_plan_url] -> [floor_plan_url](str)
+    [finising] -> |*get_finishing($this)| -> [finishing](str)
+    [uuid] -> [flats_uuid](str)
+    [] -> |*get_flats_type_uuid($block_uuid, $rooms, $tags)| -> [flats_type_uuid](str)
+    [building_uuid] -> [building_uuid](str)
+    [block_uuid] -> [block_uuid](str)
+    [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
 
-target2=postgres("parser.norm_data")
-target1=dict("target_new")
-
-target1:
-    [id] -> [external_id](str)
-    [name] => |*lower|*upper|*func1|*func2| - [low_name](str)
-    [age] - |*check_age| -> [](none)
-    [test1] -> [test_NORM](str)
-
-target2:
-    [id] -> |id| -> [id](str)
-    [name] -> |*s1|*upper| -> [name](str)
-    [] -> |*gen_rand_int| -> [score](int)
-    [] -> |*gen_rand_int| -> [score2](int)
 """
 
 СЛОВАРЬ ПОСЛЕ ПАРСИНГА:
-{
-  "target_new": {
-    "sourse_type": "dict",
-    "target_type": "dict",
-    "routes": {
-      "id": {
-        "pipeline": null,
-        "final_type": "str",
-        "final_name": "external_id"
-      },
-      "name": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*lower"
-          },
-          "2": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*upper"
-          },
-          "3": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func1"
-          },
-          "4": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func2"
-          }
-        },
-        "final_type": "str",
-        "final_name": "low_name"
-      },
-      "age": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*check_age"
-          }
-        },
-        "final_type": "none",
-        "final_name": "3"
-      },
-      "test1": {
-        "pipeline": null,
-        "final_type": "str",
-        "final_name": "test_NORM"
-      }
+
+
+
+
+
+
+давай тут сдлеаем универсальный асинхронный конструктор ETL процесса!
+
+На вход может подаваиться json с инструкциями по выполнению
+А мы должны на этом построить ETL
+
+Примеры валидных json вот тут:
+@test_base_syntax.py 
+
+Пайплайны будут работать на @pydantic 
+И выполняться асинхронно, но не все сразу, а опираясь на инструкцию в ключе execution_plan
+
+В будущем добавиться возможность различных типов нотификации если что-то происходит не то во время выполенния
+Напрмиер будет модуль ТГ уведомлденгий (это потом)
+Папкка нотификаторов: @notifiers 
+Сейчас для простоты будет только один: @console_notifier.py он просто пишет в консоль там где и выполянется код
+
+Написанный внутренний проект сначала на вход получает json
+Он заходит в первый ключ и ищет ключ source_type. Далее понимаем каким методом нам брать данные (у нас есть папка @source_getters в которой лежат файлы для работы с источником)
+Для простоты сначала будем работать просто с источником 
+@pydict_source_getter.py
+
+А записывать будем в @target_writers  и там я уже создал @pg_target_writer.py (там в будущем будет осуществляться запись в постгрес через asyncpg)
+
+Теперь к главному файлу: @dtrt_runner.py он как раз таки и будет принимать в себя аргументы:
+1. json структуру с инструкциями
+2. пользовательская папка с перменными
+3. пользовательская папка с ф-иями
+4. notifier (у нас сейчас только "console")
+5. source_data (opt)(это полезные данные, которые будут участоваать ккак источник)
+6. Данные для подключения к БД
+
+Далее он открывает, смотрит какой там указан source_type
+В зависимости от source_type он выбирает объект какого класса выбрать в @source_getters (сейчас там всего один) 
+Ксати посмотри его, я реализовал
+Для всех мэтчингов нужно использовать файл@config.py 
+При создании передаем два аргумента: 1. непосредственно наш словарь. 2. поля, которые нужно забрать (их берем из execution_plan или можно пройтись по json собрать, тут как удобнее)
+Далее мы обращзаемся к созданному объекту класса 
+через getter.report
+получаем что-то по типу такого: 
+{'fully_valid': False,
+ 'invalid_count': 18,
+ 'invalid_examples': [{'index': 0, 'missing_keys': ['age']},
+                      {'index': 3, 'missing_keys': ['age']},
+                      {'index': 4, 'missing_keys': ['name']},
+                      {'index': 9, 'missing_keys': ['age']},
+                      {'index': 12, 'missing_keys': ['name']},
+                      {'index': 14, 'missing_keys': ['age']},
+                      {'index': 18, 'missing_keys': ['age']},
+                      {'index': 20, 'missing_keys': ['age']},
+                      {'index': 22, 'missing_keys': ['name']},
+                      {'index': 25, 'missing_keys': ['age']}],
+ 'percent_valid': 63.265,
+ 'source': 'pydict',
+ 'total_received': 49,
+ 'valid_count': 31}
+
+Если видим, что 'fully_valid': False, то вызываем созданное в @exeptions.py исключение и выводим аккуратно в консоль через @console_notifier.py . + завершаем выполнение
+
+Если видим fully_valid истиным, то переходим к валидации полей в нашем уже таргете:
+В зависимости от того какое значениее в target_type, мы выбираем способ работы в @target_writers создаем врайтера и просим у него метод валидации полецй (если нужно передаем строки для подключения если они есть)
+Он тоже должен вернуть ответ, все ли поля (final_name) есть в таргете
+
+Затем переходим к формированию пайплайнов!!
+И тут достаточно сложная конечно задача. Но за ее выполнение ты получишь награду!
+Опять же, смотри на всевозможные входные json в @test_base_syntax.py 
+
+Обрати внимание, что ты должен построить пайплайн по иснтукциям
+А потом запустить асинхронно опираясь на execution_plan!
+Если что, можешь создать файлы необходимые, если посчитаешь нужным разделить логику по файлам
+
+Данные должны преобразовываться согласно этим инстукциям
+В том числе условыне конструкции должны соблюдаться 
+Для удобвства я сделал для тебя так что в блоках exp в ключе full_str ты можешь по сути преобразовать это в пайтон код и посмотреть что там True или False
+
+Так же для удобства я сделал для тебя такую строку для передачи параметров в python ф-ию там есть ключ param
+Кстати по поводу того откуда брать ф-ии: у нас есть встроенные ф-ии в папке @std_func нужно смотреть их оттуда. А так же мы уазывали путь к пользовательским функциям. Например вот тут мои @my_funcs 
+Валидировать их существование не нужно. Если они указаны в json, значит они точно есть!
+Ф-ии у меня всегда вида: def func(*args, **kwargs): и всегда ретернят значения
+
+$this - это грубо говоря перменная этого пайплайна (ОНА ИЗМЕНЯЕТСЯ ПО ХОДУ ВОЗВРАЩЕНИЯ ИЗ Ф-ИЙ)
+
+Посде того как пайплайн отработал до конца мы добавлем его значенеи в значение финального словаря!
+Ключ этого финального словаря - это название из final_name
+А значение - то что вышло у нас ну и понятно, что туда попадает уже из pydentyc и по хорошему должны быть в своем типе нужном уже, но в дальнейшем это все равно у нас будет проверяться
+
+Финальный словарь - это составной словарь вида:
+final_frame = {
+    'final_name': {
+        'source_name': 'name',
+        'final_type': 'str',
+        'final_value': 'var'
     }
-  },
-  "parser.norm_data": {
-    "sourse_type": "dict",
-    "target_type": "postgres",
-    "routes": {
-      "id": {
-        "pipeline": {
-          "1": {
-            "type": "direct",
-            "param": "$this",
-            "full_str": "id"
-          }
-        },
-        "final_type": "str",
-        "final_name": "id"
-      },
-      "name": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*s1"
-          },
-          "2": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*upper"
-          }
-        },
-        "final_type": "str",
-        "final_name": "name"
-      },
-      "__void1": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*gen_rand_int"
-          }
-        },
-        "final_type": "int",
-        "final_name": "score"
-      },
-      "__void2": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*gen_rand_int"
-          }
-        },
-        "final_type": "int",
-        "final_name": "score2"
-      }
-    }
-  }
-}
 
+По поводу того, что ты увидишь $name в аргументах и в выражениях условных. Тут все просто - подставляешь значение из 
+final_frame словаря. Там будет мэтчинг $text1 = text1 (его и ищем в final_name) затем обязательо кастуем final_value в final_type и уже передаем его в ф-ию. Результат должен передаваться дальше по пайплайну
 
-```
+Если встретишь:
+  "type": "event",
+                "sub_type": "NOTIFY",
+                "param": "\"Прсто уведомление\"",
+                "full_str": "NOTIFY(\"Прсто уведомление\")"
+              }
+То это тип события означает, что нужно что-то сделдать сейчас и обязхательно отправитть сообщение через выбранный на данный момоент @notifiers 
+NOTIFY - означает ничего не делать, просто отправь сообщение
+SKIP - отмени весь final_frame и перейди к следующему листу данных  Ну и все так же отправь сообщение через выбранный на данный момоент 
+ROLLBACK - отмени вообще все! И отправь сообщение
 
-УСЛОВНЫЕ КОНСТРУКЦИИ:
+Напомню о том, что асинхронное выполненеи идет согласно execution_plan, чтобы не попоась на ситуацию, когда мы взяли на выполнение то, что имеет зависимость в аргументах от другой перменной
+Поэтому мы выполянем по мере зависимостей, чтобы в final_frame всгда находились нужные даненые
 
-"pipeline": {
-    "1": {
-    "type": "cond_stmt",
-    "sub_type": "if_else",
-    "if": {
-        "exp": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*get_random_true_or_false"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func1"
-        }
-    },
-    "else": {
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func2"
-        }
-    }
-    "full_str": "IF(*get_random_true_or_false): *func1 ELSE: *func2"
-},
+КОгда мы выполнились и все асинхронности положили свои данные в final_frame, то кладем этот final_frame в более глобальную штуку - warehouse это лист таких словарей
+Тут важен порядок, ведь мы будем вставлять потом из этого слдоваря в наш намеченный таргет
 
 
-"pipeline": {
-    "1": {
-    "type": "cond_stmt",
-    "sub_type": "if_else",
-    "if": {
-        "exp": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*get_random_true_or_false"
-        },
-        "do": {
-            "type": "event",
-            "sub_type": "SKIP"
-            "param": "Пропущен, потому что получили true",
-            "full_str": "SKIP("Пропущен, потому что получили true")"
-        }
-    },
-    "else": {
-        "do": {
-            "type": "event",
-            "sub_type": "ROLLBACK"
-            "param": "Роллбэк, т.к получили false",
-            "full_str": "ROLLBACK("Роллбэк, т.к получили false")"
-        }
-    }
-    "full_str": "IF(*get_random_true_or_false): SKIP("Пропущен, потому что получили true") ELSE: ROLLBACK("Роллбэк, т.к получили false")"
-},
-(У ELSE НИКОГДА НЕ БУДЕТ exp)
+После того как мы прошли по всем словарям в листе и собрали готовый final_frame и прошлись по ним всем, заполнив тем самым warehouse, мы понимаем, что т.к все свалидированно и знаем что поля для записи сущесвтуют благодрая прошлой проверки @target_writers то мы можем вызвать уже ранее созданнывй объект от @target_writers, передать в него наш warehouse и запустить запись через asyncpg!!
 
-
-
-"pipeline": {
-    "1": {
-    "type": "cond_stmt",
-    "sub_type": "if_else",
-    "if": {
-        "exp": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*get_random_true_or_false"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func1"
-        }
-    },
-    "else": {
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func2"
-        }
-    }
-    "full_str": "IF(*get_random_true_or_false): *func1 ELSE: *func2"
-},
-
-
-"pipeline": {
-    "1": {
-    "type": "cond_stmt",
-    "sub_type": "if_else",
-    "if": {
-        "exp": {
-            "type": "cond_exp",
-            "full_str": "$this > 100"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func1"
-        }
-    },
-    "else": {
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*func2"
-        }
-    }
-    "full_str": "IF($this > 100): *func1 ELSE: *func2"
-},
-(У ELSE НИКОГДА НЕ БУДЕТ exp)
-
-
-"pipeline": {
-    "1": {
-    "type": "cond_stmt",
-    "sub_type": "if_elifs_else",
-    "if": {
-        "exp": {
-            "type": "cond_exp",
-            "full_str": "$age > 70"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*funk1"
-        }
-    },
-     "elif_1": {
-        "exp": {
-            "type": "cond_exp",
-            "full_str": "$age < 20"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$age",
-            "full_str": "*funk2"
-        }
-    },
-     "elif_2": {
-        "exp": {
-            "type": "cond_exp",
-            "full_str": "$this IN $$consts.ages"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*funk3"
-        }
-    },
-     "elif_3": {
-        "exp": {
-            "type": "cond_exp",
-            "full_str": "$this == 100"
-        },
-        "do": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*funk4 "
-        }
-    },
-    "else": {
-        "do": {
-            "type": "event",
-            "sub_type": "ROLLBACK"
-            "param": "$this не обрабатываем",
-            "full_str": "ROLLBACK("$this не обрабатываем")"
-        }
-    }
-    "full_str": "|IF($age > 70): *funk1 ELIF($age < 20): *funk2($age) ELIF($this IN $$consts.ages): *func3 ELIF($this == 100): *funk4 ELSE: ROLLBACK("$this не обрабатываем")"
-},
-Тут обращаем вниманеи на то, что elif инкрементируется 
-Так же, что есть обращение к системным константам через $$
-Так же, что в тектс события можно передавать $this или другие переменные: $$, $name
-
-
-ОБРАБОТКИ ОШИБОК ДЛЯ СИНТАКИСЧЕСКОГО АНАЛИЗА:
-A. Конструкция IF(exp): ... ELSE: ...
-1. |ELSE: *func2| 
-ERROR: В выражении может быть только if, но не может быть else без if. 
-HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
-
-2. |IF: *func2 ELSE: *func1| 
-ИЛИ:
-|IF *func1 ELSE |  
-ИЛИ:
-|IF 1>10: *func1 ELSE: *func2|
-ERROR: условная конструкция должна содержать знак скобок
-HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
-
-3. |IF (): *func1 ELSE: *func2|
-ERROR: не найдено логическое выражение внутри условной конструкции
-HINT: добавьте логическое выражение внутрь условной конструкции IF(услвие). используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
-
-4.|IF (1>10) *func1 ELSE: *func2|
-ИЛИ
-|IF (1>10): *func1 ELSE *func2|
-ERROR: не найден знак завершения условного выражения (:)
-HINT: Возможное решение: используйте конструкции IF(exp): ... ELSE: ... / IF(exp): ... ELIF(exp): ... ELSE: ...
-
-B. Конструкция IF(exp): ... ELIF(exp): ... ELSE: ...
-1. Те же типы ошибок что и для A.
-
-
-C. Использование несуществующей переменной типа $
-Пояснение: в коде мы можем обращаться к переменной, которую определили
-ВАЖНО: ЕСЛИ ТЫ ЧТО-ТО МОЖЕШЬ ДОБАВИТЬ - ОБЯЗАТЕЛЬНО ДОБАВЛЯЙ! ОБЯЗАТЕЛЬНО
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-=================
-Отлично, теперь давай добавим ф-нал
-Как видишь, сейчас в пайплайнах у меня просто передаются this параметр, что означает буквально: возьми текущую переменную
-    [name] -> |*normalize_name| -> [Norm_name](str)
-
-Т.к тут нет операторных скобок, то по умолчанию компилятор понимает, что сейчас контекст — это локальная переменна this. 
-Это можно увидеть на этапе финальной компиляции:
-pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$this",
-            "full_str": "*normalize_name"
-ЭТО БЫЛ ПЕРВЫЙ ТИП ПЕРЕМЕННОЙ
-Кстати можно еще писать напрямую:
-    [name] -> |*normalize_name($this)| -> [Norm_name](str) - это будет то же самое
-
-Что теперь нужно ввести в ф-нал:
-
-    [name] -> |*normalize_name($age)| -> [Norm_name](str)
-
-"name": {
-        "pipeline": {
-          "1": {
-            "type": "py_func",
-            "param": "$age",
-            "full_str": "*normalize_name($age)"
-          }
-        },
-        "final_type": "str",
-        "final_name": "Norm_name"
-      }
-Обрати внимание на "param" - он просто взял всю строку между скобочек
-
-Как видишь, я подвел тебя к еще одной новой и важной концепции: работа с переменными
-Сейсчас расскажу какие будут типы:
-0. Переменная сам на себя ($this)
-1. Локальная перменная - $name
-Область видимости - облать route map (т.е вложенность в
-
-Т.е это грубо говоря как обычные локальные переменные в ЯП.
-Валидация и возможные варианты на уровне обработки синтаксиса:
-А. Свободное объявление вне пайплайнов:
-'''начало кода dtrt
-source=dict
-target1=postgres/norm
-target2=postgres/norm2
-
-#можем объявить тут ряд переменных:
-$myVar1 = "a-zA-zа-яА-Я0-9"
-$myVar2 = 900
-$myVar3 = 12.3
-$myVar4 = True
-#должен выкидывать ошибку при анализе:
-$myVar4 = False
-#Ошибка: переменная была объявлена ранее
-Возможное решение: инициализация переменных осуществляется в уникальные переменные
-
-#далее можем их использовать в пайплайнах:
-target1:
-    [] -> |*gen_uuid($myVar4)| -> [uuid](UUID)
-    [age] -> |*check_age($ myVar3)| ->  [$normAge](int) #так можно, создастся новая переменная $norm_age (уже реализовано)
-    [] -> |*check Age($norm_age)| -> [$ageCorrect](bool) #видим, что используем переменную, которая недавно была создана, это корректно 
-    [score] -> |*check_score($score)| -> [NormScore](float) #а вот тут будет ошибка, т.к $score ранее не был объявлен, а он используется внутри пайплайна (и не создаётся через -> [$score])
-Так что нужно вот такое добавить в анализатор, поиск всех переменных, построение мапы, подведение итогов, выброс ошибок
-
-В финальном json это будет отдельный словарь: global_vars:
-{
- "myVar1": {type: str, val: "a-zA-Zа-яА-Я0-9"}
-"myVar2": {type: int, val: 900}
-...
-}
-Далее идет часть с пайплайнами...
-
-Б. Создание переменных как результат выполнения пайплайна:
-[А]->|*func|->[$B](str)
-Как видим, результат - создание переменной $B
-там будет:
-"final_type": "str"
-final_name: "$B"
-(Это уже работает)
-Тут важно выбрасывать ошибку анализатора, если мы хотим создать переменную, которая уже используется в пайплайне (однако на глобальные это не будет ругаться) они просто будут перезаписываться :
-...код:
-[string] -> |*get_rand_str| -> [$myVar1](str)
-...финальный json:
-было:
-global_vars:
- "myVar1": {type: str, val: "a-zA-Zа-яА-Я0-9"}
-Стало:
- "myVar1": {type: str, val: $string}
-
-В. Обращение к пре-переменной или пост-переменной.
-Я могу обращаться вот так:
-[name] -> |*norm_name| -> [name]
-[score] ->|*check_score($name)|->[](int)
-Тут по умолчанию возьмется name, который уже нормализован(т.е из правой части), а что если нам нужно взять сырой name?
-Для этого есть синтаксис ^
-[score] ->|*check_score($^name)|->[](int)
-
-Теперь считается, что нам нужно брать значение $^name (нужно убедиться, что это попадает в param верно)
-
-ПОСЛЕДНИЙ НОВЫЙ ТИП ПЕРЕМЕННОЙ:
-Обращение к глобальным переменным ($$)
-При создании экземпляра dataroute мы будем так же передавать расположение папки с пользовательскими переменными
-    dtrt = DataRoute(correct_input1, vars_folder, debug=False, lang="ru", color=True)
-
-В этой папке будут json файлы (в будущем настрою еще поддержку yaml)
-
-В эту папку можно обращаться через точечную нотацию:
-$$имя_файла.элемент_в_файле
-
-Например мы указали путь к папке
-В ней есть 2 json файла
-vars1.json:
-"names": [
- "саша",
- "маша"
-]
-vars2.json:
-"nestedExample": {
-    "level1": {
-      "level2": {
-        "level3": {
-          "value": "Deep nesting example"
-        }
-      }
-    }
-  }
-Обращаемся:
-[A] -> |*func($$vars1.names)| -> [B1](str)
-[A1] -> |*func($$vars2.nestedExample.level1.level2.level3.value)| -> [B2](str)
-
-Тут тоже как и везде нужно сделать анализацию:
-1. $$ не могут быть финальным результатом пайпалайна
-2. При указании папки она не была найдена
-3. При указании файла в папке файл не был найден
-4. При указании через точечную нотацию произошла ошибка
-
-Итак, я предлагаю внедрять по одной из этих фичей и в конце тестировать каждую, а я буду поправлять! 
-
-
-
+Сделай все чисто, как будто ты старший разработчик!
+Срарайся разбивать на блоки. Проверять себяч кажддый раз
 

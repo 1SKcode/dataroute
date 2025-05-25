@@ -1,6 +1,6 @@
 import re
 import sys
-from typing import Optional
+from typing import Optional, Dict, Any, cast, Union
 
 from .constants import ErrorType, ERROR_MESSAGE_MAP, ERROR_HINT_MAP, ALLOWED_TYPES
 from .localization import Localization, Messages
@@ -55,8 +55,9 @@ class DSLSyntaxError(Exception):
             hint_label = self.loc.get(Messages.Hint.LABEL)
             result.append(f"{hint_label} {self.suggestion}")
         # Иначе пробуем использовать стандартную подсказку для данного типа ошибки
-        elif ERROR_HINT_MAP.get(self.error_type):
-            hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type), 
+        elif self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict, 
                                 target=self.line if self.error_type == ErrorType.SEMANTIC_TARGET else None,
                                 **self.format_kwargs)
             if hint:
@@ -101,14 +102,17 @@ class SyntaxErrorHandler:
     def analyze(self, line: str, line_num: int) -> DSLSyntaxError:
         """Анализирует строку и возвращает соответствующую ошибку"""
         # Проверка на пустой пайплайн
-        if re.search(self.patterns["pipeline_empty"], line):
-            pos = re.search(self.patterns["pipeline_empty"], line).start() + 1
+        empty_match = re.search(self.patterns["pipeline_empty"], line)
+        if empty_match:
+            pos = empty_match.start() + 1
             return PipelineEmptyError(line, line_num, pos)
         
         # Проверка на последовательные пайплайны
-        if re.search(self.patterns["pipeline_sequential"], line):
-            pos = re.search(self.patterns["pipeline_sequential"], line).end() - 1
-            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, Messages.Hint.SEQUENTIAL_PIPELINES)
+        seq_match = re.search(self.patterns["pipeline_sequential"], line)
+        if seq_match:
+            pos = seq_match.end() - 1
+            return DSLSyntaxError(ErrorType.PIPELINE_EMPTY, line, line_num, pos, 
+                                cast(str, Messages.Hint.SEQUENTIAL_PIPELINES))
         
         # Проверка синтаксиса определения источника и цели
         if re.match(self.patterns["source_syntax"], line):
@@ -326,11 +330,12 @@ class InvalidTypeError(DSLSyntaxError):
         ]
         
         # Добавляем подсказку для этого типа ошибки
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type), 
-                           allowed_types=", ".join(ALLOWED_TYPES))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict, allowed_types=", ".join(ALLOWED_TYPES))
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -431,10 +436,12 @@ class UndefinedVarError(DSLSyntaxError):
         ]
         
         # Добавляем подсказку для этого типа ошибки
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -478,10 +485,12 @@ class InvalidVarUsageError(DSLSyntaxError):
         ]
         
         # Добавляем подсказку для этого типа ошибки
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -525,10 +534,12 @@ class SrcFieldAsVarError(DSLSyntaxError):
         ]
         
         # Добавляем подсказку для этого типа ошибки
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -536,7 +547,7 @@ class SrcFieldAsVarError(DSLSyntaxError):
 class ExternalVarsFolderNotFoundError(DSLSyntaxError):
     """Ошибка: папка с внешними переменными не найдена"""
     
-    def __init__(self, folder_name: str, line: str = None, line_num: int = 0, position: int = None):
+    def __init__(self, folder_name: str, line: Optional[str] = None, line_num: int = 0, position: Optional[int] = None):
         self.folder_name = folder_name
         # Создаем фиктивные параметры для базового класса
         # т.к. эта ошибка не связана напрямую с конкретной строкой кода
@@ -574,7 +585,8 @@ class ExternalVarsFolderNotFoundError(DSLSyntaxError):
 class ExternalVarFileNotFoundError(DSLSyntaxError):
     """Ошибка: файл с внешними переменными не найден"""
     
-    def __init__(self, file_name: str, line: str = None, line_num: int = 0, position: int = None, node_value: str = None):
+    def __init__(self, file_name: str, line: Optional[str] = None, line_num: int = 0, 
+                 position: Optional[int] = None, node_value: Optional[str] = None):
         self.file_name = file_name
         # Создаем фиктивные параметры для базового класса
         dummy_line = f"$$file_name..." if line is None else line
@@ -619,7 +631,8 @@ class ExternalVarFileNotFoundError(DSLSyntaxError):
 class ExternalVarPathNotFoundError(DSLSyntaxError):
     """Ошибка: путь не найден во внешней переменной"""
     
-    def __init__(self, path: str, line: str = None, line_num: int = 0, position: int = None, node_value: str = None):
+    def __init__(self, path: str, line: Optional[str] = None, line_num: int = 0, 
+                 position: Optional[int] = None, node_value: Optional[str] = None):
         self.path = path
         # Создаем фиктивные параметры для базового класса, если строка не передана
         dummy_line = f"$${path}" if line is None else line
@@ -630,7 +643,7 @@ class ExternalVarPathNotFoundError(DSLSyntaxError):
             elif path in node_value:
                 position = dummy_line.find(path)
         
-        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position, None)
+        super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position or 0, None)
         
     def _format_error_message(self) -> str:
         """Форматирует сообщение об ошибке для пути во внешней переменной"""
@@ -689,10 +702,12 @@ class ConditionMissingIfError(DSLSyntaxError):
         ]
         
         # Если есть подсказка в карте подсказок, добавляем её
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -734,10 +749,12 @@ class ConditionMissingColonError(DSLSyntaxError):
         ]
         
         # Если есть подсказка в карте подсказок, добавляем её
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -773,10 +790,12 @@ class ConditionMissingParenthesisError(DSLSyntaxError):
         ]
         
         # Если есть подсказка в карте подсказок, добавляем её
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -813,10 +832,12 @@ class ConditionEmptyExpressionError(DSLSyntaxError):
         ]
         
         # Если есть подсказка в карте подсказок, добавляем её
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         
         return "\n".join(result)
 
@@ -824,7 +845,8 @@ class ConditionEmptyExpressionError(DSLSyntaxError):
 class ConditionInvalidError(DSLSyntaxError):
     """Ошибка: недопустимое или неправильное условное выражение"""
     
-    def __init__(self, line: str, line_num: int, message: str = None, position: int = None, key: str = None):
+    def __init__(self, line: str, line_num: int, message: Optional[str] = None, 
+                 position: Optional[int] = None, key: Optional[str] = None):
         self.key = key
         super().__init__(ErrorType.CONDITION_INVALID, line, line_num, position, None, key=key)
     
@@ -851,19 +873,23 @@ class ConditionInvalidError(DSLSyntaxError):
             f"{message}",
         ]
         # Если есть подсказка в карте подсказок, добавляем её
-        hint = self.loc.get(ERROR_HINT_MAP.get(self.error_type))
-        if hint:
-            hint_label = self.loc.get(Messages.Hint.LABEL)
-            result.append(f"{hint_label} {hint}")
+        if self.error_type in ERROR_HINT_MAP:
+            hint_dict = cast(Dict[str, str], ERROR_HINT_MAP[self.error_type])
+            hint = self.loc.get(hint_dict)
+            if hint:
+                hint_label = self.loc.get(Messages.Hint.LABEL)
+                result.append(f"{hint_label} {hint}")
         return "\n".join(result)
 
 
 class FuncNotFoundError(DSLSyntaxError):
     """Ошибка: функция не найдена"""
-    def __init__(self, line: str, line_num: int, func_name: str, position: int = None, func_folder: str = None):
+    def __init__(self, line: str, line_num: int, func_name: str, 
+                 position: Optional[int] = None, func_folder: Optional[str] = None):
         self.func_name = func_name
         self.func_folder = func_folder
-        super().__init__(ErrorType.FUNC_NOT_FOUND, line, line_num, position, None, func_name=func_name, func_folder=func_folder)
+        super().__init__(ErrorType.FUNC_NOT_FOUND, line, line_num, position, None, 
+                        func_name=func_name, func_folder=func_folder)
     def _guess_error_position(self, line: str) -> int:
         # Ищем *func_name
         pos = line.find(f"*{self.func_name}")
@@ -874,7 +900,8 @@ class FuncNotFoundError(DSLSyntaxError):
 
 class FuncConflictError(DSLSyntaxError):
     """Ошибка: конфликт имён функций между std_func и пользовательской папкой"""
-    def __init__(self, func_name: str, line: str = None, line_num: int = 0, position: int = None):
+    def __init__(self, func_name: str, line: Optional[str] = None, line_num: int = 0, 
+                 position: Optional[int] = None):
         self.func_name = func_name
         dummy_line = f"*{func_name}" if line is None else line
         super().__init__(ErrorType.FUNC_CONFLICT, dummy_line, line_num, position, None, func_name=func_name)
@@ -899,7 +926,8 @@ def print_func_conflict_error(std_func_dir: str, user_func_dir: str, conflicts: 
 
 class ExternalFuncFolderNotFoundError(DSLSyntaxError):
     """Ошибка: папка с пользовательскими функциями не найдена"""
-    def __init__(self, folder_name: str, line: str = None, line_num: int = 0, position: int = None):
+    def __init__(self, folder_name: str, line: Optional[str] = None, line_num: int = 0, 
+                 position: Optional[int] = None):
         self.folder_name = folder_name
         dummy_line = f"func_folder=\"{folder_name}\"" if line is None else line
         super().__init__(ErrorType.UNKNOWN, dummy_line, line_num, position or 0, None)

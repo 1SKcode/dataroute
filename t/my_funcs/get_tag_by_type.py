@@ -24,5 +24,8 @@ tag_groups = {
 
 type_to_tag = {synonym: tag for tag, synonyms in tag_groups.items() for synonym in synonyms}
 
-def get_tag_by_type(type_value):
+def func(*args, **kwargs):
+    if not args:
+        return None
+    type_value = args[0]
     return type_to_tag.get(type_value, None) 

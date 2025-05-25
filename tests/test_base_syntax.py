@@ -22,43 +22,18 @@ class TestValidBaseSyntax():
                 [pointI] => [pointJ](str)
             """,
             {
-                "lang": "py",
-                "dict/my_new_dict": {
-                    "sourse_type": {
-                    "type": "dict",
-                    "name": "my_dict"
+                'lang': 'py',
+                'dict/my_new_dict': {
+                    'source_type': {'type': 'dict', 'name': 'my_dict'},
+                    'target_type': {'type': 'dict', 'name': 'my_new_dict'},
+                    'routes': {
+                        'pointA': {'pipeline': None, 'final_type': 'str', 'final_name': 'pointB'},
+                        'pointC': {'pipeline': None, 'final_type': 'int', 'final_name': 'pointD'},
+                        'pointE': {'pipeline': None, 'final_type': 'bool', 'final_name': 'pointF'},
+                        'pointG': {'pipeline': None, 'final_type': 'float', 'final_name': 'pointH'},
+                        'pointI': {'pipeline': None, 'final_type': 'str', 'final_name': 'pointJ'}
                     },
-                    "target_type": {
-                    "type": "dict",
-                    "name": "my_new_dict"
-                    },
-                    "routes": {
-                        "pointA": {
-                            "pipeline": None,
-                            "final_type": "str",
-                            "final_name": "pointB"
-                        },
-                        "pointC": {
-                            "pipeline": None,
-                            "final_type": "int",
-                            "final_name": "pointD"
-                        },
-                        "pointE": {
-                            "pipeline": None,
-                            "final_type": "bool",
-                            "final_name": "pointF"
-                        },
-                        "pointG": {
-                            "pipeline": None,
-                            "final_type": "float",
-                            "final_name": "pointH"
-                        },
-                        "pointI": {
-                            "pipeline": None,
-                            "final_type": "str",
-                            "final_name": "pointJ"
-                        }
-                    }
+                    'execution_plan': [['pointA', 'pointC', 'pointE', 'pointG', 'pointI']]
                 }
             }
         ),
@@ -66,7 +41,7 @@ class TestValidBaseSyntax():
     def test_valid_dsl(self, test_id, test_case, expected_result):
         """Проверка корректного DSL и генерации правильного JSON"""
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         
         # Получаем JSON и сравниваем с ожидаемым результатом
         assert result == expected_result, f"Неверный результат для теста: {test_id}"
@@ -91,42 +66,32 @@ class TestDoubleTarget:
         expected_result = {
             "lang": "py",
             "dict/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "source_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
                 "routes": {
                     "pointA": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "",
-                                "full_str": "*func1()"
-                            }
-                        },
+                        "pipeline": {"1": {"type": "py_func", "param": "", "full_str": "*func1()"}},
                         "final_type": "int",
                         "final_name": "$s"
                     }
-                }
+                },
+                "execution_plan": [["pointA"]]
             },
             "postgres/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "source_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "postgres", "name": "my_new_dict"},
                 "routes": {
                     "pointA": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "",
-                                "full_str": "*func1()"
-                            }
-                        },
+                        "pipeline": {"1": {"type": "py_func", "param": "", "full_str": "*func1()"}},
                         "final_type": "int",
                         "final_name": "$s"
                     }
-                }
+                },
+                "execution_plan": [["pointA"]]
             }
         }
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result
 
 
@@ -167,26 +132,23 @@ class TestManyTargets:
         target10:
             [pointA] -> |*func1()| -> [$s](int)
         """
-        expected_result = {f"postgres{i}/my_new_dict": {
-            "sourse_type": {"type": "dict", "name": "my_dict"},
-            "target_type": {"type": f"postgres{i}", "name": "my_new_dict"},
-            "routes": {
-                "pointA": {
-                    "pipeline": {
-                        "1": {
-                            "type": "py_func",
-                            "param": "",
-                            "full_str": "*func1()"
-                        }
-                    },
-                    "final_type": "int",
-                    "final_name": "$s"
-                }
-            }
-        } for i in range(1, 11)}
+        expected_result = {
+            f"postgres{i}/my_new_dict": {
+                "source_type": {"type": "dict", "name": "my_dict"},
+                "target_type": {"type": f"postgres{i}", "name": "my_new_dict"},
+                "routes": {
+                    "pointA": {
+                        "pipeline": {"1": {"type": "py_func", "param": "", "full_str": "*func1()"}},
+                        "final_type": "int",
+                        "final_name": "$s"
+                    }
+                },
+                "execution_plan": [["pointA"]]
+            } for i in range(1, 11)
+        }
         expected_result["lang"] = "py"
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result
 
 
@@ -205,7 +167,7 @@ class TestVoidField:
         expected_result = {
             "lang": "py",
             "dict/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
+                "source_type": {"type": "dict", "name": "my_dict"},
                 "target_type": {"type": "dict", "name": "my_new_dict"},
                 "routes": {
                     "__void1": {
@@ -229,11 +191,12 @@ class TestVoidField:
                         "final_type": "int",
                         "final_name": "B"
                     }
-                }
+                },
+                "execution_plan": [["__void1", "__void2", "__void3"]]
             }
         }
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result
 
 
@@ -249,26 +212,19 @@ class TestVoidTargetField:
             [B] -> []
         """
         expected_result = {
-            "lang": "py",
-            "dict/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
-                "target_type": {"type": "dict", "name": "my_new_dict"},
-                "routes": {
-                    "A": {
-                        "pipeline": None,
-                        "final_type": None,
-                        "final_name": None
-                    },
-                    "B": {
-                        "pipeline": None,
-                        "final_type": None,
-                        "final_name": None
-                    }
-                }
+            'lang': 'py',
+            'dict/my_new_dict': {
+                'source_type': {'type': 'dict', 'name': 'my_dict'},
+                'target_type': {'type': 'dict', 'name': 'my_new_dict'},
+                'routes': {
+                    'A': {'pipeline': None, 'final_type': None, 'final_name': None},
+                    'B': {'pipeline': None, 'final_type': None, 'final_name': None}
+                },
+                'execution_plan': [['A', 'B']]
             }
         }
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result
 
 
@@ -285,49 +241,56 @@ class TestParamThisEquivalence:
             [E] -> |*s1($this)| -> [F](str)
         """
         expected_result = {
-            "lang": "py",
-            "dict/my_new_dict": {
-                "sourse_type": {"type": "dict", "name": "my_dict"},
-                "target_type": {"type": "dict", "name": "my_new_dict"},
-                "routes": {
-                    "A": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
+            'lang': 'py',
+            'dict/my_new_dict': {
+                'source_type': {
+                    'type': 'dict',
+                    'name': 'my_dict'
+                },
+                'target_type': {
+                    'type': 'dict',
+                    'name': 'my_new_dict'
+                },
+                'routes': {
+                    'A': {
+                        'pipeline': {
+                            '1': {
+                                'type': 'py_func',
+                                'param': '$this',
+                                'full_str': '*s1'
                             }
                         },
-                        "final_type": "str",
-                        "final_name": "B"
+                        'final_type': 'str',
+                        'final_name': 'B'
                     },
-                    "C": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1($C)"
+                    'C': {
+                        'pipeline': {
+                            '1': {
+                                'type': 'py_func',
+                                'param': '$this',
+                                'full_str': '*s1($C)'
                             }
                         },
-                        "final_type": "str",
-                        "final_name": "D"
+                        'final_type': 'str',
+                        'final_name': 'D'
                     },
-                    "E": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1($this)"
+                    'E': {
+                        'pipeline': {
+                            '1': {
+                                'type': 'py_func',
+                                'param': '$this',
+                                'full_str': '*s1($this)'
                             }
                         },
-                        "final_type": "str",
-                        "final_name": "F"
+                        'final_type': 'str',
+                        'final_name': 'F'
                     }
-                }
+                },
+                'execution_plan': [['A', 'C', 'E']]
             }
         }
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result, "param должен быть $this для всех трёх вариантов"
 
 
@@ -345,7 +308,7 @@ class TestExternalVarInPythonParams:
         expected_result = {
             "lang": "py",
             "dict/my_new_dict": {
-                "sourse_type": {
+                "source_type": {
                     "type": "dict",
                     "name": "my_dict"
                 },
@@ -376,11 +339,13 @@ class TestExternalVarInPythonParams:
                         "final_type": "str",
                         "final_name": "D"
                     }
-                }
+                },
+                "execution_plan": [["A", "C"]]
             }
         }
         dtrt = DataRoute(test_case, vars_folder="tests/ext_vars", debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
+        import json; print(json.dumps(result, indent=2, ensure_ascii=False))
         assert result == expected_result
 
 
@@ -400,7 +365,7 @@ class TestGlobalVarInPythonParams:
         expected_result = {
             "lang": "py",
             "dict/my_new_dict": {
-                "sourse_type": {
+                "source_type": {
                     "type": "dict",
                     "name": "my_dict"
                 },
@@ -449,7 +414,8 @@ class TestGlobalVarInPythonParams:
                         "final_type": "str",
                         "final_name": "B"
                     }
-                }
+                },
+                "execution_plan": [["a", "A"]]
             },
             "global_vars": {
                 "myvar": {
@@ -463,7 +429,7 @@ class TestGlobalVarInPythonParams:
             }
         }
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result, f"Неверный результат для теста с глобальными переменными!\n{result}"
 
 
@@ -476,350 +442,395 @@ class TestComplexNormBlock:
         norm=postgres/norm_data.norm_blocks
         $block9Floor=f49f5e6b-67f1-4596-a4f8-5f27f1f5f457
         norm:
-            [block_uuid] -> [block_uuid](str)
-            [is_euro] -> |*s1|IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)| -> [is_euro](bool)
-            [rooms] -> |*s1|IF($block_uuid == $block9Floor AND $this == "9" OR $this == None): *get(0)| -> [rooms](str)
-            [] -> |*get(\"Свободна\")| -> [status](str)
-            [section] -> |*s1|IF($this == None): *get(\"Нет секции\")| -> [section_name](str)
-            [price_sale] -> |*s1| -> [$price_sale](int)
-            [price_base] -> |*s1|IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)| -> [price](int)
-            [type] -> |*get_tag_by_type($this)| -> [tags](str)
-            [area_total] -> [area_total](float)
-            [area_given] -> [area_given](float)
-            [area_kitchen] -> [area_kitchen](float)
-            [number] -> |IF($this == None): *get(\"-\")| -> [number](str)                
-            [windows] -> [windows](str)
-            [window_view] -> [window_view](str)
-            [view_places] -> [view_places](str)
-            [floor] -> |*s1|IF($this == None): *get(0)| -> [floor_of_flat](int)   
+            [block_uuid]    -> [block_uuid](str)
+            [is_euro]       -> |*s1|IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)| -> [is_euro](bool)
+            [rooms]         -> |*s1|IF($block_uuid == $block9Floor AND $this == "9" OR $this == None): *get(0)| -> [rooms](str)
+            []              -> |*get(\"Свободна\")| -> [status](str)
+            [section]       -> |*s1|IF($this == None): *get(\"Нет секции\")| -> [section_name](str)
+            [price_sale]    -> |*s1| -> [$price_sale](int)
+            [price_base]    -> |*s1|IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)| -> [price](int)
+            [type]          -> |*get_tag_by_type($this)| -> [tags](str)
+            [area_total]    -> [area_total](float)
+            [area_given]    -> [area_given](float)
+            [area_kitchen]  -> [area_kitchen](float)
+            [number]        -> |IF($this == None): *get(\"-\")| -> [number](str)                
+            [windows]       -> [windows](str)
+            [window_view]   -> [window_view](str)
+            [view_places]   -> [view_places](str)
+            [floor]         -> |*s1|IF($this == None): *get(0)| -> [floor_of_flat](int)   
             [floors_in_section] -> [floors_in_section](int)
-            [comment] -> [comment](str)
-            [plan_url] -> [plan_url](str)
+            [comment]       -> [comment](str)
+            [plan_url]      -> [plan_url](str)
             [floor_plan_url] -> [floor_plan_url](str)
-            [finising] -> |*get_finishing($this)| -> [finishing](str)
-            [uuid] -> [flats_uuid](str)
-            [] -> |*get_flats_type_uuid($block_uuid, $rooms, $tags)| -> [flats_type_uuid](str)
+            [finising]      -> |*get_finishing($this)| -> [finishing](str)
+            [uuid]          -> [flats_uuid](str)
+            []              -> |*get_flats_type_uuid($block_uuid, $rooms, $tags)| -> [flats_type_uuid](str)
             [building_uuid] -> [building_uuid](str)
-            [] -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
+            []              -> |*get_uuid_real_estate_type($tags)| -> [uuid_real_estate_type](str)
         """
         expected_result = {
             "lang": "py",
             "postgres/norm_data.norm_blocks": {
-                "sourse_type": {
-                    "type": "dict",
-                    "name": "my_dict"
+                "source_type": {
+                "type": "dict",
+                "name": "my_dict"
                 },
                 "target_type": {
-                    "type": "postgres",
-                    "name": "norm_data.norm_blocks"
+                "type": "postgres",
+                "name": "norm_data.norm_blocks"
                 },
                 "routes": {
-                    "block_uuid": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "block_uuid"
+                "block_uuid": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "block_uuid"
+                },
+                "is_euro": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
                     },
-                    "is_euro": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            },
-                            "2": {
-                                "type": "condition",
-                                "sub_type": "if_else",
-                                "full_str": "IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$this IN [\"1\", \"true\", \"True\"]"
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "True",
-                                        "full_str": "*get(True)"
-                                    }
-                                },
-                                "else": {
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "False",
-                                        "full_str": "*get(False)"
-                                    }
-                                }
-                            }
+                    "2": {
+                        "type": "condition",
+                        "sub_type": "if_else",
+                        "full_str": "IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$this IN [\"1\", \"true\", \"True\"]"
                         },
-                        "final_type": "bool",
-                        "final_name": "is_euro"
-                    },
-                    "rooms": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            },
-                            "2": {
-                                "type": "condition",
-                                "sub_type": "if",
-                                "full_str": "IF($block_uuid == $block9Floor AND $this == \"9\" OR $this == None): *get(0)",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$block_uuid == f49f5e6b-67f1-4596-a4f8-5f27f1f5f457 AND $this == \"9\" OR $this == None"
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "0",
-                                        "full_str": "*get(0)"
-                                    }
-                                }
-                            }
+                        "do": {
+                            "type": "py_func",
+                            "param": "True",
+                            "full_str": "*get(True)"
+                        }
                         },
-                        "final_type": "str",
-                        "final_name": "rooms"
-                    },
-                    "__void1": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "\"Свободна\"",
-                                "full_str": "*get(\"Свободна\")"
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "status"
-                    },
-                    "section": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            },
-                            "2": {
-                                "type": "condition",
-                                "sub_type": "if",
-                                "full_str": "IF($this == None): *get(\"Нет секции\")",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$this == None"
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "\"Нет секции\"",
-                                        "full_str": "*get(\"Нет секции\")"
-                                    }
-                                }
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "section_name"
-                    },
-                    "price_sale": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            }
-                        },
-                        "final_type": "int",
-                        "final_name": "$price_sale"
-                    },
-                    "price_base": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            },
-                            "2": {
-                                "type": "condition",
-                                "sub_type": "if",
-                                "full_str": "IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$price_sale != None OR $price_sale != \"0\""
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "$price_sale",
-                                        "full_str": "*get($price_sale)"
-                                    }
-                                }
-                            }
-                        },
-                        "final_type": "int",
-                        "final_name": "price"
-                    },
-                    "type": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*get_tag_by_type($this)"
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "tags"
-                    },
-                    "area_total": {
-                        "pipeline": None,
-                        "final_type": "float",
-                        "final_name": "area_total"
-                    },
-                    "area_given": {
-                        "pipeline": None,
-                        "final_type": "float",
-                        "final_name": "area_given"
-                    },
-                    "area_kitchen": {
-                        "pipeline": None,
-                        "final_type": "float",
-                        "final_name": "area_kitchen"
-                    },
-                    "number": {
-                        "pipeline": {
-                            "1": {
-                                "type": "condition",
-                                "sub_type": "if",
-                                "full_str": "IF($this == None): *get(\"-\")",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$this == None"
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "\"-\"",
-                                        "full_str": "*get(\"-\")"
-                                    }
-                                }
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "number"
-                    },
-                    "windows": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "windows"
-                    },
-                    "window_view": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "window_view"
-                    },
-                    "view_places": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "view_places"
-                    },
-                    "floor": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*s1"
-                            },
-                            "2": {
-                                "type": "condition",
-                                "sub_type": "if",
-                                "full_str": "IF($this == None): *get(0)",
-                                "if": {
-                                    "exp": {
-                                        "type": "cond_exp",
-                                        "full_str": "$this == None"
-                                    },
-                                    "do": {
-                                        "type": "py_func",
-                                        "param": "0",
-                                        "full_str": "*get(0)"
-                                    }
-                                }
-                            }
-                        },
-                        "final_type": "int",
-                        "final_name": "floor_of_flat"
-                    },
-                    "floors_in_section": {
-                        "pipeline": None,
-                        "final_type": "int",
-                        "final_name": "floors_in_section"
-                    },
-                    "comment": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "comment"
-                    },
-                    "plan_url": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "plan_url"
-                    },
-                    "floor_plan_url": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "floor_plan_url"
-                    },
-                    "finising": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$this",
-                                "full_str": "*get_finishing($this)"
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "finishing"
-                    },
-                    "uuid": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "flats_uuid"
-                    },
-                    "__void2": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$block_uuid, $rooms, $tags",
-                                "full_str": "*get_flats_type_uuid($block_uuid, $rooms, $tags)"
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "flats_type_uuid"
-                    },
-                    "building_uuid": {
-                        "pipeline": None,
-                        "final_type": "str",
-                        "final_name": "building_uuid"
-                    },
-                    "__void3": {
-                        "pipeline": {
-                            "1": {
-                                "type": "py_func",
-                                "param": "$tags",
-                                "full_str": "*get_uuid_real_estate_type($tags)"
-                            }
-                        },
-                        "final_type": "str",
-                        "final_name": "uuid_real_estate_type"
+                        "else": {
+                        "do": {
+                            "type": "py_func",
+                            "param": "False",
+                            "full_str": "*get(False)"
+                        }
+                        }
                     }
+                    },
+                    "final_type": "bool",
+                    "final_name": "is_euro"
+                },
+                "rooms": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    },
+                    "2": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($block_uuid == $block9Floor AND $this == \"9\" OR $this == None): *get(0)",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$block_uuid == f49f5e6b-67f1-4596-a4f8-5f27f1f5f457 AND $this == \"9\" OR $this == None"
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "0",
+                            "full_str": "*get(0)"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "rooms",
+                    "depends_on": [
+                    "block_uuid"
+                    ]
+                },
+                "__void1": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "\"Свободна\"",
+                        "full_str": "*get(\"Свободна\")"
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "status"
+                },
+                "section": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    },
+                    "2": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($this == None): *get(\"Нет секции\")",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$this == None"
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "\"Нет секции\"",
+                            "full_str": "*get(\"Нет секции\")"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "section_name"
+                },
+                "price_sale": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    }
+                    },
+                    "final_type": "int",
+                    "final_name": "$price_sale"
+                },
+                "price_base": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    },
+                    "2": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$price_sale != None OR $price_sale != \"0\""
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "$price_sale",
+                            "full_str": "*get($price_sale)"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "int",
+                    "final_name": "price"
+                },
+                "type": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*get_tag_by_type($this)"
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "tags"
+                },
+                "area_total": {
+                    "pipeline": None,
+                    "final_type": "float",
+                    "final_name": "area_total"
+                },
+                "area_given": {
+                    "pipeline": None,
+                    "final_type": "float",
+                    "final_name": "area_given"
+                },
+                "area_kitchen": {
+                    "pipeline": None,
+                    "final_type": "float",
+                    "final_name": "area_kitchen"
+                },
+                "number": {
+                    "pipeline": {
+                    "1": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($this == None): *get(\"-\")",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$this == None"
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "\"-\"",
+                            "full_str": "*get(\"-\")"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "number"
+                },
+                "windows": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "windows"
+                },
+                "window_view": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "window_view"
+                },
+                "view_places": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "view_places"
+                },
+                "floor": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*s1"
+                    },
+                    "2": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($this == None): *get(0)",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$this == None"
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "0",
+                            "full_str": "*get(0)"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "int",
+                    "final_name": "floor_of_flat"
+                },
+                "floors_in_section": {
+                    "pipeline": None,
+                    "final_type": "int",
+                    "final_name": "floors_in_section"
+                },
+                "comment": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "comment"
+                },
+                "plan_url": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "plan_url"
+                },
+                "floor_plan_url": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "floor_plan_url"
+                },
+                "finising": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$this",
+                        "full_str": "*get_finishing($this)"
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "finishing"
+                },
+                "uuid": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "flats_uuid"
+                },
+                "__void2": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$block_uuid, $rooms, $tags",
+                        "full_str": "*get_flats_type_uuid($block_uuid, $rooms, $tags)"
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "flats_type_uuid",
+                    "depends_on": [
+                    "block_uuid",
+                    "rooms",
+                    "type"
+                    ]
+                },
+                "building_uuid": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "building_uuid"
+                },
+                "__void3": {
+                    "pipeline": {
+                    "1": {
+                        "type": "py_func",
+                        "param": "$tags",
+                        "full_str": "*get_uuid_real_estate_type($tags)"
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "uuid_real_estate_type",
+                    "depends_on": [
+                    "type"
+                    ]
                 }
+                },
+                "execution_plan": [
+                [
+                    "block_uuid",
+                    "is_euro",
+                    "__void1",
+                    "section",
+                    "price_sale",
+                    "price_base",
+                    "type",
+                    "area_total",
+                    "area_given",
+                    "area_kitchen",
+                    "number",
+                    "windows",
+                    "window_view",
+                    "view_places",
+                    "floor",
+                    "floors_in_section",
+                    "comment",
+                    "plan_url",
+                    "floor_plan_url",
+                    "finising",
+                    "uuid",
+                    "building_uuid"
+                ],
+                [
+                    "rooms",
+                    "__void3"
+                ],
+                [
+                    "__void2"
+                ]
+                ]
             },
             "global_vars": {
                 "block9Floor": {
-                    "type": "str",
-                    "value": "f49f5e6b-67f1-4596-a4f8-5f27f1f5f457"
+                "type": "str",
+                "value": "f49f5e6b-67f1-4596-a4f8-5f27f1f5f457"
                 }
             }
-        }
+            }
+            
         dtrt = DataRoute(test_case, debug=True, func_folder="tests/ext_funcs", vars_folder="tests/ext_vars", lang="ru", color=True)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result == expected_result, f"Неверный результат для сложного norm_block DSL!\n{result}"
         dtrt.print_json()
         
@@ -835,5 +846,177 @@ class TestLangDirectiveSuccess:
             [field] -> [field](str)
         """
         dtrt = DataRoute(test_case, debug=False, lang="ru", color=False)
-        result = dtrt.go()
+        result = dtrt.compile_ic()
         assert result.get('lang') == 'py'
+
+
+class TestCondition:
+    """Простой двойной таргет: dict/my_new_dict и postgres/my_new_dict"""
+    def test_case1(self):
+        test_case = """
+        lang=py
+        source=dict/my_dict
+        target1=postgres/dtrt_test.newtable
+        target1:
+            [A] -> [B](str)
+            [C] -> |IF($this == 1): *s1| -> [D](str)
+            [E] -> |IF($D == "1"): *func1| -> [F](str)
+            [G] -> |IF($D == "1"): *func1 ELSE: *get("Hmm")| -> [H](str)
+            [K] -> |IF($D == "1"): *func1 ELIF($D == "3"): *s1 ELSE: *get("Hmm")| -> [L](str)
+        """
+        expected_result = {
+            "lang": "py",
+            "postgres/dtrt_test.newtable": {
+                "source_type": {
+                "type": "dict",
+                "name": "my_dict"
+                },
+                "target_type": {
+                "type": "postgres",
+                "name": "dtrt_test.newtable"
+                },
+                "routes": {
+                "A": {
+                    "pipeline": None,
+                    "final_type": "str",
+                    "final_name": "B"
+                },
+                "C": {
+                    "pipeline": {
+                    "1": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($this == 1): *s1",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$this == 1"
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "s1",
+                            "full_str": "*s1"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "D"
+                },
+                "E": {
+                    "pipeline": {
+                    "1": {
+                        "type": "condition",
+                        "sub_type": "if",
+                        "full_str": "IF($D == \"1\"): *func1",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$D == \"1\""
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "func1",
+                            "full_str": "*func1"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "F",
+                    "depends_on": [
+                    "C"
+                    ]
+                },
+                "G": {
+                    "pipeline": {
+                    "1": {
+                        "type": "condition",
+                        "sub_type": "if_else",
+                        "full_str": "IF($D == \"1\"): *func1 ELSE: *get(\"Hmm\")",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$D == \"1\""
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "func1",
+                            "full_str": "*func1"
+                        }
+                        },
+                        "else": {
+                        "do": {
+                            "type": "py_func",
+                            "param": "\"Hmm\"",
+                            "full_str": "*get(\"Hmm\")"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "H",
+                    "depends_on": [
+                    "C"
+                    ]
+                },
+                "K": {
+                    "pipeline": {
+                    "1": {
+                        "type": "condition",
+                        "sub_type": "if_elifs_else",
+                        "full_str": "IF($D == \"1\"): *func1 ELIF($D == \"3\"): *s1 ELSE: *get(\"Hmm\")",
+                        "if": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$D == \"1\""
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "func1",
+                            "full_str": "*func1"
+                        }
+                        },
+                        "elif_1": {
+                        "exp": {
+                            "type": "cond_exp",
+                            "full_str": "$D == \"3\""
+                        },
+                        "do": {
+                            "type": "py_func",
+                            "param": "s1",
+                            "full_str": "*s1"
+                        }
+                        },
+                        "else": {
+                        "do": {
+                            "type": "py_func",
+                            "param": "\"Hmm\"",
+                            "full_str": "*get(\"Hmm\")"
+                        }
+                        }
+                    }
+                    },
+                    "final_type": "str",
+                    "final_name": "L",
+                    "depends_on": [
+                    "C"
+                    ]
+                }
+                },
+                "execution_plan": [
+                [
+                    "A",
+                    "C"
+                ],
+                [
+                    "E",
+                    "G",
+                    "K"
+                ]
+                ]
+            }
+            }
+        dtrt = DataRoute(test_case, debug=True, lang="ru", color=True)
+        result = dtrt.compile_ic()
+        assert result == expected_result

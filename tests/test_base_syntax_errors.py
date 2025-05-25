@@ -31,7 +31,7 @@ class TestBaseDSL:
         
         with pytest.raises(SystemExit) as excinfo:
             dtrt = DataRoute(test_case, debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
 
         assert excinfo.value.code == 1
         captured = capsys.readouterr()
@@ -776,7 +776,7 @@ class TestVarsFolderNotFound:
         """
         with pytest.raises(SystemExit):
             dtrt = DataRoute(test_input, vars_folder="tests/ext_varsssssssss", debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Папка с внешними переменными не найдена" in output
 
@@ -792,7 +792,7 @@ class TestExternalVarPathNotFound:
         """
         with pytest.raises(SystemExit):
             dtrt = DataRoute(test_input, vars_folder="tests/ext_vars", debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Путь не найден во внешней переменной" in output
 
@@ -808,7 +808,7 @@ class TestVarFileNotFound:
         """
         with pytest.raises(SystemExit):
             dtrt = DataRoute(test_input, vars_folder="tests/ext_vars", debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Файл с внешними переменными не найден" in output
 
@@ -1131,7 +1131,7 @@ class TestDirectMappingWithoutStarWarning(TestBaseDSL):
     def test_start(self, capsys, test_id, test_case):
         dtrt = DataRoute(test_case, debug=True, lang="ru", color=False)
         try:
-            dtrt.go()
+            dtrt.compile_ic()
         except SystemExit:
             pass
         output = capsys.readouterr().out + capsys.readouterr().err
@@ -1185,7 +1185,7 @@ class TestFuncNotFoundError(TestBaseDSL):
             # Передаём пустую папку как func_folder
             dtrt = DataRoute(test_case, func_folder=temp_dir, debug=True, lang="ru", color=False)
             with pytest.raises(SystemExit):
-                dtrt.go()
+                dtrt.compile_ic()
             output = capsys.readouterr().out + capsys.readouterr().err
             assert "Функция не найдена" in output
             assert "Проверьте имя функции и наличие файла" in output
@@ -1205,7 +1205,7 @@ class TestFuncConflictError:
         # Используем папку ext_func, где гарантированно есть конфликт
         with pytest.raises(SystemExit):
             dtrt = DataRoute(test_input, func_folder="tests/ext_func", debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Обнаружены имена функций, которые уже существуют в системной библиотеке!" in output
         assert "в пользовательской папке" in output
@@ -1222,7 +1222,7 @@ class TestFuncFolderNotFound:
         """
         with pytest.raises(SystemExit):
             dtrt = DataRoute(test_input, func_folder="tests/ext_func_not_exist", debug=True, lang="ru", color=False)
-            dtrt.go()
+            dtrt.compile_ic()
         output = capsys.readouterr().out + capsys.readouterr().err
         assert "Папка с пользовательскими функциями не найдена" in output
         assert "Проверьте путь к папке с функциями" in output

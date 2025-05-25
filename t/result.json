@@ -1,0 +1,361 @@
+{
+  "source": {
+    "type": "dict",
+    "name": "my_dict",
+    "config": {}
+  },
+  "target": {
+    "norm_data.norm_blocks": {
+      "type": "postgres",
+      "name": "norm_data.norm_blocks",
+      "routes": {
+        "block_uuid": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "block_uuid"
+        },
+        "is_euro": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            },
+            "2": {
+              "type": "condition",
+              "sub_type": "if_else",
+              "full_str": "IF($this IN $$mv.is_euro): *get(True) ELSE: *get(False)",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$this IN [\"1\", \"true\", \"True\"]"
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "True",
+                  "full_str": "*get(True)"
+                }
+              },
+              "else": {
+                "do": {
+                  "type": "py_func",
+                  "param": "False",
+                  "full_str": "*get(False)"
+                }
+              }
+            }
+          },
+          "final_type": "bool",
+          "final_name": "is_euro"
+        },
+        "rooms": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            },
+            "2": {
+              "type": "condition",
+              "sub_type": "if",
+              "full_str": "IF($block_uuid == $block9Floor AND $this == \"9\" OR $this == None): *get(0)",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$block_uuid == f49f5e6b-67f1-4596-a4f8-5f27f1f5f457 AND $this == \"9\" OR $this == None"
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "0",
+                  "full_str": "*get(0)"
+                }
+              }
+            }
+          },
+          "final_type": "str",
+          "final_name": "rooms",
+          "depends_on": [
+            "block_uuid"
+          ]
+        },
+        "__void1": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "\"Свободна\"",
+              "full_str": "*get(\"Свободна\")"
+            }
+          },
+          "final_type": "str",
+          "final_name": "status"
+        },
+        "section": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            },
+            "2": {
+              "type": "condition",
+              "sub_type": "if",
+              "full_str": "IF($this == None): *get(\"Нет секции\")",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$this == None"
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "\"Нет секции\"",
+                  "full_str": "*get(\"Нет секции\")"
+                }
+              }
+            }
+          },
+          "final_type": "str",
+          "final_name": "section_name"
+        },
+        "price_sale": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            }
+          },
+          "final_type": "int",
+          "final_name": "$price_sale"
+        },
+        "price_base": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            },
+            "2": {
+              "type": "condition",
+              "sub_type": "if",
+              "full_str": "IF($price_sale != None OR $price_sale != \"0\"): *get($price_sale)",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$price_sale != None OR $price_sale != \"0\""
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "$price_sale",
+                  "full_str": "*get($price_sale)"
+                }
+              }
+            }
+          },
+          "final_type": "int",
+          "final_name": "price"
+        },
+        "type": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*get_tag_by_type($this)"
+            }
+          },
+          "final_type": "str",
+          "final_name": "tags"
+        },
+        "area_total": {
+          "pipeline": null,
+          "final_type": "float",
+          "final_name": "area_total"
+        },
+        "area_given": {
+          "pipeline": null,
+          "final_type": "float",
+          "final_name": "area_given"
+        },
+        "area_kitchen": {
+          "pipeline": null,
+          "final_type": "float",
+          "final_name": "area_kitchen"
+        },
+        "number": {
+          "pipeline": {
+            "1": {
+              "type": "condition",
+              "sub_type": "if",
+              "full_str": "IF($this == None): *get(\"-\")",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$this == None"
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "\"-\"",
+                  "full_str": "*get(\"-\")"
+                }
+              }
+            }
+          },
+          "final_type": "str",
+          "final_name": "number"
+        },
+        "windows": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "windows"
+        },
+        "window_view": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "window_view"
+        },
+        "view_places": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "view_places"
+        },
+        "floor": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*s1"
+            },
+            "2": {
+              "type": "condition",
+              "sub_type": "if",
+              "full_str": "IF($this == None): *get(0)",
+              "if": {
+                "exp": {
+                  "type": "cond_exp",
+                  "full_str": "$this == None"
+                },
+                "do": {
+                  "type": "py_func",
+                  "param": "0",
+                  "full_str": "*get(0)"
+                }
+              }
+            }
+          },
+          "final_type": "int",
+          "final_name": "floor_of_flat"
+        },
+        "floors_in_section": {
+          "pipeline": null,
+          "final_type": "int",
+          "final_name": "floors_in_section"
+        },
+        "comment": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "comment"
+        },
+        "plan_url": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "plan_url"
+        },
+        "floor_plan_url": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "floor_plan_url"
+        },
+        "finising": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$this",
+              "full_str": "*get_finishing($this)"
+            }
+          },
+          "final_type": "str",
+          "final_name": "finishing"
+        },
+        "uuid": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "flats_uuid"
+        },
+        "__void2": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$block_uuid, $rooms, $tags",
+              "full_str": "*get_flats_type_uuid($block_uuid, $rooms, $tags)"
+            }
+          },
+          "final_type": "str",
+          "final_name": "flats_type_uuid",
+          "depends_on": [
+            "block_uuid",
+            "rooms",
+            "type"
+          ]
+        },
+        "building_uuid": {
+          "pipeline": null,
+          "final_type": "str",
+          "final_name": "building_uuid"
+        },
+        "__void3": {
+          "pipeline": {
+            "1": {
+              "type": "py_func",
+              "param": "$tags",
+              "full_str": "*get_uuid_real_estate_type($tags)"
+            }
+          },
+          "final_type": "str",
+          "final_name": "uuid_real_estate_type",
+          "depends_on": [
+            "type"
+          ]
+        }
+      },
+      "execution_plan": [
+        [
+          "block_uuid",
+          "is_euro",
+          "__void1",
+          "section",
+          "price_sale",
+          "price_base",
+          "type",
+          "area_total",
+          "area_given",
+          "area_kitchen",
+          "number",
+          "windows",
+          "window_view",
+          "view_places",
+          "floor",
+          "floors_in_section",
+          "comment",
+          "plan_url",
+          "floor_plan_url",
+          "finising",
+          "uuid",
+          "building_uuid"
+        ],
+        [
+          "rooms",
+          "__void3"
+        ],
+        [
+          "__void2"
+        ]
+      ]
+    }
+  },
+  "pipeline": [],
+  "variables": {
+    "block9Floor": {
+      "type": "str",
+      "value": "f49f5e6b-67f1-4596-a4f8-5f27f1f5f457"
+    }
+  }
+}

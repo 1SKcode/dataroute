@@ -1138,7 +1138,7 @@ class JSONGenerator(ASTVisitor):
             # Если ключа ещё нет, создаём его (в нужном порядке)
             if target_key not in self.result:
                 self.result[target_key] = {
-                    "sourse_type": self.source_type,
+                    "source_type": self.source_type,
                     "target_type": target_node.target_type,
                     "routes": {}
                 }
